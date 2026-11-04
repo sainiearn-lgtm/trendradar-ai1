@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TrendRadar AI · Creator Intelligence</title>
+<meta name="description" content="Explore live public trend feeds and turn a topic into a video script.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%230a1230' stroke='%2322d3ee' stroke-width='2'/><circle cx='16' cy='16' r='5' fill='none' stroke='%2322d3ee' stroke-width='2'/><circle cx='16' cy='16' r='1.8' fill='%2322d3ee'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap">
+<style>
+:root{--bg:#070d22;--panel:#0d1631;--panel2:#121d3f;--line:#1f2d5c;--text:#e8eefc;--muted:#8fa0c8;--cyan:#22d3ee;--blue:#3b82f6;--ok:#34d399;--bad:#f87171;--grad:linear-gradient(135deg,#22d3ee,#3b82f6)}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth}
+body{font-family:Manrope,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--text);line-height:1.55;min-height:100vh;
+background-image:radial-gradient(900px 420px at 80% -10%,rgba(34,211,238,.13),transparent),radial-gradient(700px 400px at 0% 0%,rgba(59,130,246,.14),transparent)}
+a{color:var(--cyan)}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 18px}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 0;gap:12px}
+.logo{display:flex;align-items:center;gap:11px}
+.logo svg{width:36px;height:36px;flex:none}
+.logo b{font-size:1.15rem;font-weight:800;letter-spacing:-.01em}
+.logo small{display:block;color:var(--muted);font-size:.78rem;margin-top:-3px}
+.feed{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:7px 13px;cursor:pointer}
+.dot{width:9px;height:9px;border-radius:50%;background:#64748b}
+.dot.ok{background:var(--ok);box-shadow:0 0 0 0 rgba(52,211,153,.6);animation:pulse 2s infinite}
+.dot.bad{background:var(--bad)}
+@keyframes pulse{70%{box-shadow:0 0 0 8px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+.hero{padding:34px 0 22px}
+.hero h1{font-size:clamp(2rem,6.2vw,3.7rem);line-height:1.04;letter-spacing:-.03em;font-weight:800;max-width:15ch;
+background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{color:var(--muted);max-width:56ch;margin-top:14px;font-size:1.04rem}
+.controls{display:grid;grid-template-columns:1fr;gap:10px;margin:22px 0 14px}
+@media(min-width:700px){.controls{grid-template-columns:230px 1fr auto}}
+select,input,textarea{width:100%;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font:inherit}
+select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--cyan) 50%),linear-gradient(135deg,var(--cyan) 50%,transparent 50%);background-position:calc(100% - 19px) 52%,calc(100% - 14px) 52%;background-size:5px 5px;background-repeat:no-repeat;padding-right:36px}
+button{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:12px 18px;font-weight:700}
+.primary{background:var(--grad);color:#041022;transition:transform .15s,filter .15s}
+.primary:hover{filter:brightness(1.08)}
+.primary:active{transform:scale(.97)}
+.primary:disabled{opacity:.55;cursor:wait}
+.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.ghost:hover{border-color:var(--cyan)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:8px 0 20px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 15px}
+.stat span{display:block;color:var(--muted);font-size:.78rem}
+.stat b{font-size:1.35rem;font-weight:800}
+@media(max-width:480px){.stat b{font-size:1.05rem}}
+h2{font-size:1.3rem;letter-spacing:-.01em;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:13px}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;transition:border-color .2s,transform .2s}
+.card:hover{border-color:#2c4aa0;transform:translateY(-2px)}
+.row{display:flex;gap:12px;align-items:flex-start}
+.rank{flex:none;width:34px;height:34px;border-radius:10px;background:#0a1230;border:1px solid var(--line);display:grid;place-items:center;font-weight:800;color:var(--cyan);font-size:.9rem}
+.card h3{font-size:1.03rem;line-height:1.3;font-weight:700}
+.card p{color:var(--muted);font-size:.9rem}
+.meta{display:flex;flex-wrap:wrap;gap:7px;font-size:.76rem;color:var(--muted)}
+.chip{background:#0a1230;border:1px solid var(--line);border-radius:99px;padding:2px 9px}
+.bar{height:7px;background:#0a1230;border-radius:9px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--grad);border-radius:9px}
+.score{display:flex;justify-content:space-between;align-items:center;font-size:.8rem;color:var(--muted);gap:10px}
+.score b{color:var(--text);font-size:1.05rem}
+.actions{display:flex;gap:8px;margin-top:auto}
+.actions .primary{flex:1;padding:10px}
+.actions a{padding:10px 13px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);text-decoration:none;font-weight:700;font-size:.9rem}
+.state{padding:28px;text-align:center;color:var(--muted);background:var(--panel);border:1px dashed var(--line);border-radius:16px}
+.skel{height:190px;border-radius:16px;background:linear-gradient(90deg,var(--panel) 25%,var(--panel2) 50%,var(--panel) 75%);background-size:200% 100%;animation:sh 1.3s infinite}
+@keyframes sh{to{background-position:-200% 0}}
+.note{font-size:.8rem;color:var(--muted);margin-top:14px;padding:11px 14px;border-left:3px solid var(--blue);background:var(--panel);border-radius:0 10px 10px 0}
+.srcs{display:none;margin:0 0 14px;padding:12px 14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;font-size:.84rem}
+.srcs.open{display:block}
+.srcs div{display:flex;justify-content:space-between;gap:10px;padding:3px 0}
+section.studio{margin:44px 0 20px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:20px}
+.form{display:grid;gap:12px;grid-template-columns:1fr}
+@media(min-width:760px){.form{grid-template-columns:1fr 1fr}.full{grid-column:1/-1}}
+label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:5px}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.seg button{flex:1;min-width:120px;background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
+.seg button.on{background:var(--grad);color:#041022;border-color:transparent}
+#out{margin-top:20px;display:none;gap:12px}
+#out.show{display:grid}
+.block{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.block h4{color:var(--cyan);font-size:.85rem;margin-bottom:6px}
+.block pre{white-space:pre-wrap;font:inherit;word-break:break-word}
+.scene{padding:9px 0;border-top:1px solid var(--line);font-size:.9rem}
+.scene:first-of-type{border-top:0}
+.scene em{font-style:normal;color:var(--cyan);font-weight:700}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.err{color:var(--bad);margin-top:12px}
+footer{padding:26px 0 40px;color:var(--muted);font-size:.8rem}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 36 36" aria-hidden="true"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#22d3ee"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs><circle cx="18" cy="18" r="16" fill="#0a1230" stroke="url(#g)" stroke-width="2"/><circle cx="18" cy="18" r="9" fill="none" stroke="url(#g)" stroke-width="2" opacity=".7"/><circle cx="18" cy="18" r="2.5" fill="#22d3ee"/><path d="M18 18 L28 9" stroke="#22d3ee" stroke-width="2" stroke-linecap="round"/></svg>
+    <div><b>TrendRadar AI</b><small>Creator Intelligence</small></div>
+  </div>
+  <button class="feed" id="feedBtn" aria-expanded="false" aria-controls="srcs"><span class="dot" id="dot"></span><span id="feedTxt">Checking feeds…</span></button>
+</header>
+
+<div class="srcs" id="srcs"></div>
+
+<section class="hero">
+  <h1>Find the next big content idea.</h1>
+  <p>Explore live public trend feeds, spot topics worth researching, and turn a topic into a video script.</p>
+</section>
+
+<form class="controls" id="searchForm">
+  <select id="region" aria-label="Region">
+    <option value="IN">India</option><option value="US">United States</option><option value="GB">United Kingdom</option>
+    <option value="CA">Canada</option><option value="AU">Australia</option><option value="DE">Germany</option>
+  </select>
+  <input id="q" type="search" placeholder="Search trends by keyword, e.g. cricket, AI, budget" aria-label="Search trends" maxlength="80">
+  <button class="primary" type="submit">Search trends</button>
+</form>
+
+<div class="stats">
+  <div class="stat"><span>Topics found</span><b id="sCount">–</b></div>
+  <div class="stat"><span>Highest score</span><b id="sMax">–</b></div>
+  <div class="stat"><span>Last updated</span><b id="sTime">–</b></div>
+</div>
+
+<h2 id="listTitle">Trending now</h2>
+<div class="grid" id="grid"></div>
+<p class="note" id="note">Trend scores are estimates built from source signals, recency and repeated mentions. They are not official social platform virality metrics.</p>
+
+<section class="studio" id="studio">
+  <h2>AI video script studio</h2>
+  <div class="form">
+    <div class="full"><label for="topicSel">Pick a trending topic</label><select id="topicSel"><option value="">Choose from the list above…</option></select></div>
+    <div class="full"><label for="custom">Or enter your own topic</label><input id="custom" maxlength="300" placeholder="Custom topic (overrides the selection above)"></div>
+    <div><label>Language</label><div class="seg" id="langSeg"><button type="button" data-v="English" class="on">English</button><button type="button" data-v="Hinglish">Hinglish</button><button type="button" data-v="Hindi">Hindi</button></div></div>
+    <div><label>Format</label><div class="seg" id="fmtSeg"><button type="button" data-v="shorts" class="on">Shorts · 60s</button><button type="button" data-v="long">Long · 5-10 min</button></div></div>
+    <div class="full"><button class="primary" id="gen" type="button">Generate script</button></div>
+  </div>
+  <div class="err" id="genErr" role="alert"></div>
+  <div id="out"></div>
+</section>
+<footer>TrendRadar AI uses public RSS and news feeds (Google Trends, Google News, GDELT) and YouTube when configured. Always verify facts before publishing.</footer>
+</div>
+
+<script src="config.js"></script>
+<script>
+const API = window.API_BASE || "";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let TRENDS = [], lang = "English", fmt = "shorts", lastScript = "";
+
+function ago(iso){
+  if(!iso) return "time unknown";
+  const m = Math.max(0, (Date.now() - new Date(iso)) / 60000);
+  if(m < 60) return Math.round(m) + " min ago";
+  if(m < 1440) return Math.round(m/60) + " h ago";
+  return Math.round(m/1440) + " d ago";
+}
+
+async function loadTrends(){
+  const region = $("region").value, q = $("q").value.trim();
+  $("grid").innerHTML = '<div class="skel"></div>'.repeat(6);
+  $("dot").className = "dot"; $("feedTxt").textContent = "Loading feeds…";
+  $("listTitle").textContent = q ? `Results for “${q}”` : "Trending now";
+  try{
+    const r = await fetch(`${API}/api/trends?region=${region}&q=${encodeURIComponent(q)}`);
+    if(!r.ok) throw new Error(`Server error ${r.status}`);
+    const d = await r.json();
+    TRENDS = d.trends;
+    render(d);
+  }catch(e){
+    TRENDS = [];
+    $("grid").innerHTML = `<div class="state">Could not load trends. ${esc(e.message)}. Check your connection and try again.</div>`;
+    $("dot").className = "dot bad"; $("feedTxt").textContent = "Feed offline";
+    ["sCount","sMax","sTime"].forEach(i => $(i).textContent = "–");
+  }
+}
+
+function render(d){
+  const ok = d.sources.filter(s => s.ok).length;
+  $("dot").className = "dot " + (ok ? "ok" : "bad");
+  $("feedTxt").textContent = ok ? `${ok} of ${d.sources.length} feeds live` : "All feeds unavailable";
+  $("srcs").innerHTML = d.sources.map(s => `<div><span>${esc(s.source)}</span><span style="color:${s.ok?"var(--ok)":"var(--bad)"}">${s.ok ? s.count + " items" : esc(s.error)}</span></div>`).join("");
+  $("note").textContent = d.note;
+  $("sCount").textContent = d.trends.length;
+  $("sMax").textContent = d.trends.length ? Math.max(...d.trends.map(t => t.score)) : "–";
+  $("sTime").textContent = new Date(d.updated).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+  $("topicSel").innerHTML = '<option value="">Choose from the list above…</option>' + d.trends.map((t,i) => `<option value="${i}">${esc(t.title)}</option>`).join("");
+  if(!d.trends.length){
+    $("grid").innerHTML = `<div class="state">${ok ? "No topics matched. Try a broader keyword." : "Every source failed. Open the feed status above for details, then retry."}</div>`;
+    return;
+  }
+  $("grid").innerHTML = d.trends.map((t,i) => `
+    <article class="card">
+      <div class="row"><div class="rank" title="Rank">#${t.rank}</div><h3>${esc(t.title)}</h3></div>
+      <p>${esc(t.summary)}</p>
+      <div class="meta"><span class="chip">${esc(t.source)}</span><span class="chip">${esc(t.category)}</span><span class="chip">${esc(t.region)}</span><span class="chip">${ago(t.published)}</span></div>
+      <div class="score"><span>Estimated trend score</span><b>${t.score}/100</b></div>
+      <div class="bar" role="img" aria-label="Score ${t.score} of 100"><i style="width:${t.score}%"></i></div>
+      <div class="actions"><button class="primary" data-i="${i}">Make a video</button>${t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer">Source</a>` : ""}</div>
+    </article>`).join("");
+}
+
+$("grid").addEventListener("click", e => {
+  const b = e.target.closest("button[data-i]"); if(!b) return;
+  $("topicSel").value = b.dataset.i; $("custom").value = "";
+  $("studio").scrollIntoView({behavior:"smooth"});
+});
+$("searchForm").addEventListener("submit", e => { e.preventDefault(); loadTrends(); });
+$("region").addEventListener("change", loadTrends);
+$("feedBtn").addEventListener("click", () => { const o = $("srcs").classList.toggle("open"); $("feedBtn").setAttribute("aria-expanded", o); });
+
+function seg(id, cb){
+  $(id).addEventListener("click", e => {
+    const b = e.target.closest("button"); if(!b) return;
+    $(id).querySelectorAll("button").forEach(x => x.classList.remove("on")); b.classList.add("on"); cb(b.dataset.v);
+  });
+}
+seg("langSeg", v => lang = v); seg("fmtSeg", v => fmt = v);
+
+$("gen").addEventListener("click", async () => {
+  const custom = $("custom").value.trim(), sel = $("topicSel").value;
+  const t = custom ? {title: custom, summary: ""} : (sel !== "" ? TRENDS[+sel] : null);
+  $("genErr").textContent = "";
+  if(!t){ $("genErr").textContent = "Pick a trending topic or type your own first."; return; }
+  const btn = $("gen"); btn.disabled = true; btn.textContent = "Writing your script…";
+  try{
+    const r = await fetch(`${API}/api/script`, {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({topic: t.title, context: t.summary, language: lang, format: fmt})});
+    const d = await r.json().catch(() => ({}));
+    if(!r.ok) throw new Error(d.detail || `Server error ${r.status}`);
+    showScript(d);
+  }catch(e){ $("genErr").textContent = e.message; }
+  btn.disabled = false; btn.textContent = "Generate script";
+});
+
+function showScript(d){
+  const scenes = Array.isArray(d.scenes) ? d.scenes : [], tags = Array.isArray(d.hashtags) ? d.hashtags : [];
+  lastScript = [
+    `TITLE: ${d.title}`, `\nHOOK: ${d.hook}`, `\nSCRIPT:\n${d.script}`,
+    `\nSCENES:\n` + scenes.map(s => `[${s.time}] Visual: ${s.visual}\n   Voiceover: ${s.voiceover}`).join("\n"),
+    `\nTHUMBNAIL TEXT: ${d.thumbnail_text}`, `\nDESCRIPTION:\n${d.description}`, `\nHASHTAGS: ${tags.join(" ")}`, `\nCALL TO ACTION: ${d.cta}`
+  ].join("\n");
+  $("out").innerHTML = `
+    <div class="block"><h4>Title</h4><pre>${esc(d.title)}</pre></div>
+    <div class="block"><h4>Opening hook</h4><pre>${esc(d.hook)}</pre></div>
+    <div class="block"><h4>Full script</h4><pre>${esc(d.script)}</pre></div>
+    <div class="block"><h4>Scene by scene</h4>${scenes.map(s => `<div class="scene"><em>${esc(s.time)}</em><br>Visual: ${esc(s.visual)}<br>Voiceover: ${esc(s.voiceover)}</div>`).join("")}</div>
+    <div class="block"><h4>Thumbnail text</h4><pre>${esc(d.thumbnail_text)}</pre></div>
+    <div class="block"><h4>Video description</h4><pre>${esc(d.description)}</pre></div>
+    <div class="block"><h4>Hashtags</h4><div class="tags">${tags.map(h => `<span class="chip">${esc(h)}</span>`).join("")}</div></div>
+    <div class="block"><h4>Call to action</h4><pre>${esc(d.cta)}</pre></div>
+    <button class="ghost" id="copy" type="button">Copy script</button>`;
+  $("out").classList.add("show");
+  $("copy").onclick = async () => {
+    try{ await navigator.clipboard.writeText(lastScript); }
+    catch{ const t = document.createElement("textarea"); t.value = lastScript; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); }
+    $("copy").textContent = "Copied"; setTimeout(() => $("copy").textContent = "Copy script", 1800);
+  };
+  $("out").scrollIntoView({behavior:"smooth"});
+}
+
+loadTrends();
+</script>
+</body>
+</html>
