@@ -295,5 +295,12 @@ Keep claims cautious and factual. Never present uncertain details as confirmed."
     raise HTTPException(502, f"Script generation failed. {last}")
 
 
-FRONTEND = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
-app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="frontend")
+HERE = os.path.dirname(os.path.abspath(__file__))
+FRONTEND = next((p for p in (os.path.join(HERE, "frontend"), os.path.join(HERE, "..", "frontend"))
+                 if os.path.exists(os.path.join(p, "index.html"))), None)
+if FRONTEND:
+    app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="frontend")
+else:
+    @app.get("/")
+    def missing_frontend():
+        return {"error": "frontend folder with index.html not found in the repo"}
