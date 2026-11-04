@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: trendradar-ai-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: CACHE_TTL_SECONDS
+        value: "900"
+      - key: REQUEST_TIMEOUT_SECONDS
+        value: "12"
