@@ -290,7 +290,7 @@ async def trends(region: str = "IN", q: str | None = None):
 
 
 class ScriptRequest(BaseModel):
-    topic: str = Field(min_length=2, max_length=220)
+    topic: str = Field(min_length=2, max_length=5000)
     language: str = Field(default="English")
     format: str = Field(default="Shorts (60 seconds)")
 
