@@ -276,6 +276,89 @@
       $("scriptMessage").textContent = error.message;
       $("scriptMessage").className = "message error";
     } finally { btn.disabled = false; btn.textContent = "Generate script ✦"; }
+    async function loadHindiNews() {
+  const button = $("newsRefreshBtn");
+  const message = $("newsMessage");
+  const box = $("newsResults");
+
+  button.disabled = true;
+  button.textContent = "Loading…";
+  message.textContent = "Hindi news feeds check ho rahi hain...";
+  message.className = "message";
+  box.replaceChildren();
+
+  try {
+    const limit = $("newsLimit").value;
+
+    const data = await readJson(
+      await fetch(apiUrl(`/api/news?limit=${encodeURIComponent(limit)}`))
+    );
+
+    const articles = Array.isArray(data.articles)
+      ? data.articles
+      : [];
+
+    message.textContent = `${articles.length} headlines available`;
+
+    if (!articles.length) {
+      message.textContent = "Abhi news available nahi hai.";
+      return;
+    }
+
+    articles.forEach(article => {
+      const card = document.createElement("article");
+      card.className = "trend-card";
+
+      const source = document.createElement("span");
+      source.className = "tag";
+      source.textContent = article.source || "Hindi News";
+
+      const title = document.createElement("h3");
+      title.textContent = article.title || "News headline";
+
+      const summary = document.createElement("p");
+      summary.textContent = article.summary || "Original news padhne ke liye link kholen.";
+
+      const actions = document.createElement("div");
+      actions.className = "card-actions";
+
+      const use = document.createElement("button");
+      use.className = "mini-btn";
+      use.textContent = "Make Hindi Video Script";
+
+      use.addEventListener("click", () => {
+        $("customTopic").value = article.title;
+        $("language").value = "Hindi";
+        $("studio").scrollIntoView({ behavior: "smooth" });
+      });
+
+      actions.append(use);
+
+      if (article.url && /^https?:\/\//i.test(article.url)) {
+        const link = document.createElement("a");
+        link.href = article.url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.className = "text-link";
+        link.textContent = "Read Original ↗";
+        actions.append(link);
+      }
+
+      card.append(source, title, summary, actions);
+      box.append(card);
+    });
+
+  } catch (error) {
+    message.textContent = error.message;
+    message.className = "message error";
+  } finally {
+    button.disabled = false;
+    button.textContent = "Refresh News ↻";
+  }
+}
+
+$("newsRefreshBtn").addEventListener("click", loadHindiNews);
+$("newsLimit").addEventListener("change", loadHindiNews);
   }async function searchViralVideos() {
   const query = $("researchQuery").value.trim();
   const platform = $("researchPlatform").value;
