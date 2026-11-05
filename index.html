@@ -130,13 +130,12 @@
   </main>
 
 <script>
-  // Set this to your deployed FastAPI backend URL. Example: https://trendradar-api.onrender.com
-  const API_BASE = "https://YOUR-BACKEND.onrender.com".replace(/\/$/, "");
+  // Your deployed FastAPI backend URL
+  const API_BASE = "https://trendradar-ai1.onrender.com".replace(/\/$/, "");
   const $ = (id) => document.getElementById(id);
   let currentTrends = [];
 
   function apiUrl(path) {
-    if (API_BASE.includes("YOUR-BACKEND")) throw new Error("Please set API_BASE in frontend/index.html to your deployed backend URL.");
     return API_BASE + path;
   }
   function escapeHtml(value) {
