@@ -297,7 +297,7 @@ class ScriptRequest(BaseModel):
     @field_validator("topic")
     @classmethod
     def validate_topic(cls, value: str) -> str:
-        value = clean_text(value, 220)
+        value = clean_text(value, 5000)
         if len(value) < 2:
             raise ValueError("Please enter a meaningful topic.")
         return value
