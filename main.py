@@ -602,3 +602,50 @@ async def video_research(
 async def unexpected_error_handler(request: Request, exc: Exception):
     logger.exception("Unhandled API error at %s", request.url.path)
     return JSONResponse(status_code=500, content={"detail": "An unexpected server error occurred."})
+@app.get("/api/news")
+async def hindi_news(limit: int = 40):
+    limit = max(5, min(limit, 60))
+    cache_key = f"hindi-news:{limit}"
+    cached_rows = cached(cache_key)
+
+    if cached_rows is not None:
+        return {
+            "count": len(cached_rows),
+            "articles": cached_rows,
+            "cached": True
+        }
+
+    feeds = [
+        ("Aaj Tak", "https://www.aajtak.in/rssfeeds/?id=home"),
+        ("BBC Hindi", "https://feeds.bbci.co.uk/hindi/rss.xml"),
+        ("NDTV India", "https://feeds.feedburner.com/ndtvkhabar-india"),
+        ("Amar Ujala", "https://www.amarujala.com/rss/breaking-news.xml"),
+        ("Dainik Bhaskar", "https://www.bhaskar.com/rss-v1--category-1061.xml"),
+    ]
+
+    import xml.etree.ElementTree as ET
+
+    async def fetch_feed(client, name, url):
+        try:
+            response = await client.get(
+                url,
+                headers={"User-Agent": "Mozilla/5.0 TrendRadarAI/1.2"},
+                timeout=REQUEST_TIMEOUT
+            )
+            response.raise_for_status()
+
+            root = ET.fromstring(response.text)
+            items = root.findall(".//item")
+            rows = []
+
+            for item in items[:30]:
+                title = clean_text(item.findtext("title"), 240)
+                link = clean_text(item.findtext("link"), 1200)
+                description = clean_text(
+                    item.findtext("description"), 500
+                )
+                published = parse_date(item.findtext("pubDate"))
+
+                if title and safe_http_url(link):
+                    rows.append({
+                        "title": title,
