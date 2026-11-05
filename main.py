@@ -604,6 +604,8 @@ async def unexpected_error_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": "An unexpected server error occurred."})
 @app.get("/api/news")
 async def hindi_news(limit: int = 40):
+    import xml.etree.ElementTree as ET
+
     limit = max(5, min(limit, 60))
     cache_key = f"hindi-news:{limit}"
     cached_rows = cached(cache_key)
@@ -623,8 +625,6 @@ async def hindi_news(limit: int = 40):
         ("Dainik Bhaskar", "https://www.bhaskar.com/rss-v1--category-1061.xml"),
     ]
 
-    import xml.etree.ElementTree as ET
-
     async def fetch_feed(client, name, url):
         try:
             response = await client.get(
@@ -635,10 +635,9 @@ async def hindi_news(limit: int = 40):
             response.raise_for_status()
 
             root = ET.fromstring(response.text)
-            items = root.findall(".//item")
             rows = []
 
-            for item in items[:30]:
+            for item in root.findall(".//item")[:30]:
                 title = clean_text(item.findtext("title"), 240)
                 link = clean_text(item.findtext("link"), 1200)
                 description = clean_text(
@@ -649,3 +648,64 @@ async def hindi_news(limit: int = 40):
                 if title and safe_http_url(link):
                     rows.append({
                         "title": title,
+                        "summary": description,
+                        "source": name,
+                        "url": link,
+                        "published_at": (
+                            published.isoformat() if published else None
+                        )
+                    })
+
+            return name, rows
+
+        except Exception as exc:
+            logger.warning("News feed %s failed: %s", name, exc)
+            return name, []
+
+    async with httpx.AsyncClient(follow_redirects=True) as client:
+        results = await asyncio.gather(
+            *[
+                fetch_feed(client, name, url)
+                for name, url in feeds
+            ]
+        )
+
+    articles = []
+    statuses = {}
+    seen = set()
+
+    for name, rows in results:
+        statuses[name] = "ok" if rows else "unavailable"
+
+        for row in rows:
+            key = re.sub(
+                r"[^a-z0-9]+", " ",
+                row["title"].lower()
+            ).strip()
+
+            if key and key not in seen:
+                seen.add(key)
+                articles.append(row)
+
+    def sort_date(article):
+        date = parse_date(article["published_at"])
+        return date.timestamp() if date else 0
+
+    articles.sort(key=sort_date, reverse=True)
+    articles = articles[:limit]
+
+    if not articles:
+        raise HTTPException(
+            status_code=503,
+            detail="Hindi news feeds temporarily unavailable."
+        )
+
+    put_cache(cache_key, articles)
+
+    return {
+        "count": len(articles),
+        "articles": articles,
+        "sources": statuses,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "notice": "Public RSS headlines. Verify important news with the original publisher."
+    }
