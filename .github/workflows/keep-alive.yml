@@ -1,0 +1,19 @@
+name: TrendRadar AI Keep Alive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping TrendRadar AI
+        run: |
+          curl --fail --silent --show-error \
+            --retry 2 --retry-delay 5 --max-time 30 \
+            https://trendradar-ai1.onrender.com/api/health
