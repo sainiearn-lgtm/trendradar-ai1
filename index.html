@@ -111,6 +111,34 @@
       <div class="empty">Loading public trend sources…</div>
     </section>
     <p class="notice">Trend scores are indicative estimates based on public-source signals and recency. They are not official Google Trends or platform analytics. Availability and coverage vary by region and source.</p>
+    <section class="panel" id="breakingNews">
+  <div class="studio-head">
+    <div>
+      <h2>🇮🇳 Breaking News Radar</h2>
+      <p>Hindi news headlines ek jagah — Aaj Tak, BBC Hindi, NDTV India, Amar Ujala aur Dainik Bhaskar se.</p>
+    </div>
+    <span class="tag">HINDI NEWS</span>
+  </div>
+
+  <div class="topic-row">
+    <select id="newsLimit">
+      <option value="20">Latest 20</option>
+      <option value="40" selected>Latest 40</option>
+      <option value="60">Latest 60</option>
+    </select>
+    <button id="newsRefreshBtn" class="btn">Refresh News ↻</button>
+  </div>
+
+  <div id="newsMessage" class="message" style="margin-top:12px">
+    Loading latest headlines…
+  </div>
+
+  <div id="newsResults" class="grid" style="margin-top:18px"></div>
+
+  <p class="notice">
+    Headlines public RSS feeds se aati hain. Important news ko original publisher se verify karein.
+  </p>
+</section>
 <section class="panel" id="videoResearch">
   <div class="studio-head">
     <div>
