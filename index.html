@@ -248,7 +248,123 @@
       $("scriptMessage").textContent = error.message;
       $("scriptMessage").className = "message error";
     } finally { btn.disabled = false; btn.textContent = "Generate script ✦"; }
+  }async function searchViralVideos() {
+  const query = $("researchQuery").value.trim();
+  const platform = $("researchPlatform").value;
+  const btn = $("researchBtn");
+  const resultsBox = $("researchResults");
+  const message = $("researchMessage");
+
+  if (query.length < 2) {
+    message.textContent = "Please enter a topic to search.";
+    message.className = "message error";
+    return;
   }
+
+  btn.disabled = true;
+  btn.textContent = "Searching...";
+  message.textContent = "Searching public video sources...";
+  message.className = "message";
+  resultsBox.replaceChildren();
+
+  try {
+    const params = new URLSearchParams({
+      q: query,
+      platform,
+      region: $("region").value
+    });
+
+    const data = await readJson(
+      await fetch(apiUrl(`/api/video-research?${params}`))
+    );
+
+    const results = data.results || [];
+
+    if (!results.length) {
+      message.textContent = "No videos found. Try another keyword.";
+      return;
+    }
+
+    message.textContent = `${results.length} results found.`;
+
+    results.forEach(video => {
+      const card = document.createElement("article");
+      card.className = "trend-card";
+
+      if (video.thumbnail) {
+        const img = document.createElement("img");
+        img.src = video.thumbnail;
+        img.alt = "Video thumbnail";
+        img.loading = "lazy";
+        img.style.cssText = "width:100%;border-radius:10px;margin-bottom:12px;aspect-ratio:16/9;object-fit:cover";
+        card.append(img);
+      }
+
+      const title = document.createElement("h3");
+      title.textContent = video.title || "Untitled video";
+
+      const details = document.createElement("p");
+      details.textContent = video.channel
+        ? `Channel: ${video.channel}`
+        : (video.note || "Public indexed result");
+
+      if (video.views !== undefined) {
+        details.textContent +=
+          ` · Views: ${Number(video.views).toLocaleString("en-IN")}` +
+          ` · Likes: ${Number(video.likes).toLocaleString("en-IN")}` +
+          ` · Views/hour: ${Number(video.views_per_hour).toLocaleString("en-IN")}`;
+      }
+
+      const score = document.createElement("div");
+      score.className = "score";
+      score.style.margin = "12px 0";
+      score.textContent = video.viral_score !== undefined
+        ? `TrendRadar Viral Score: ${video.viral_score}/100`
+        : "Instagram public discovery";
+
+      const actions = document.createElement("div");
+      actions.className = "card-actions";
+
+      const useButton = document.createElement("button");
+      useButton.className = "mini-btn";
+      useButton.textContent = "Use Topic in AI Script Studio";
+
+      useButton.addEventListener("click", () => {
+        $("customTopic").value = video.title || query;
+        $("studio").scrollIntoView({ behavior: "smooth" });
+        $("customTopic").focus();
+      });
+
+      actions.append(useButton);
+
+      if (video.url && /^https?:\/\//i.test(video.url)) {
+        const link = document.createElement("a");
+        link.href = video.url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.className = "text-link";
+        link.textContent = "Watch video ↗";
+        actions.append(link);
+      }
+
+      card.append(title, details, score, actions);
+      resultsBox.append(card);
+    });
+
+  } catch (error) {
+    message.textContent = error.message;
+    message.className = "message error";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Find Viral Videos 🔎";
+  }
+}
+
+$("researchBtn").addEventListener("click", searchViralVideos);
+
+$("researchQuery").addEventListener("keydown", event => {
+  if (event.key === "Enter") searchViralVideos();
+});
   $("refreshBtn").addEventListener("click", loadTrends);
   $("region").addEventListener("change", loadTrends);
   $("keyword").addEventListener("keydown", event => { if (event.key === "Enter") loadTrends(); });
