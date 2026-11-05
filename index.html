@@ -111,7 +111,28 @@
       <div class="empty">Loading public trend sources…</div>
     </section>
     <p class="notice">Trend scores are indicative estimates based on public-source signals and recency. They are not official Google Trends or platform analytics. Availability and coverage vary by region and source.</p>
+<section class="panel" id="videoResearch">
+  <div class="studio-head">
+    <div>
+      <h2>🔥 Viral Video Research</h2>
+      <p>YouTube videos aur publicly indexed Instagram Reels discover karo.</p>
+    </div>
+    <span class="tag">VIDEO DISCOVERY</span>
+  </div>
 
+  <div class="topic-row">
+    <select id="researchPlatform">
+      <option value="youtube">YouTube Videos</option>
+      <option value="instagram">Instagram Reels</option>
+    </select>
+    <input id="researchQuery" placeholder="Topic search karo... jaise AI, Cricket, Tech" />
+    <button id="researchBtn" class="btn">Find Viral Videos 🔎</button>
+  </div>
+
+  <div id="researchMessage" class="message" style="margin-top:12px"></div>
+  <div id="researchResults" class="grid" style="margin-top:18px"></div>
+  <p class="notice">YouTube metrics public API statistics par based hain. Instagram results public indexed discovery hain; complete live trending feed nahi.</p>
+</section>
     <section class="panel" id="studio">
       <div class="studio-head">
         <div><h2>✦ AI Script Studio</h2><p>Turn a trend into a structured video script.</p></div>
