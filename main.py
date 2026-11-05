@@ -419,7 +419,184 @@ Do not invent statistics, quotes, breaking-news claims, or factual specifics. If
             status_code=502,
             detail="AI generation failed. Check Gemini API key/model configuration in Render.",
         ) from exc
+@app.get("/api/video-research")
+async def video_research(
+    q: str = "India",
+    platform: str = "youtube",
+    region: str = "IN",
+):
+    q = clean_text(q, 100)
+    platform = platform.lower().strip()
 
+    if len(q) < 2:
+        raise HTTPException(status_code=422, detail="Please enter a search topic.")
+
+    if platform not in {"youtube", "instagram"}:
+        raise HTTPException(status_code=422, detail="Choose YouTube or Instagram.")
+
+    async with httpx.AsyncClient(follow_redirects=True) as client:
+
+        # YouTube public video research
+        if platform == "youtube":
+            if not YOUTUBE_API_KEY:
+                raise HTTPException(
+                    status_code=503,
+                    detail="YouTube API key is not configured. Add YOUTUBE_API_KEY in Render."
+                )
+
+            published_after = (
+                datetime.now(timezone.utc).timestamp() - 30 * 86400
+            )
+            after_date = datetime.fromtimestamp(
+                published_after, timezone.utc
+            ).isoformat().replace("+00:00", "Z")
+
+            search_response = await client.get(
+                "https://www.googleapis.com/youtube/v3/search",
+                params={
+                    "part": "snippet",
+                    "type": "video",
+                    "q": q,
+                    "order": "viewCount",
+                    "publishedAfter": after_date,
+                    "maxResults": 15,
+                    "regionCode": region,
+                    "key": YOUTUBE_API_KEY,
+                },
+                timeout=REQUEST_TIMEOUT,
+            )
+            search_response.raise_for_status()
+
+            items = search_response.json().get("items", [])
+            ids = [
+                item.get("id", {}).get("videoId")
+                for item in items
+                if item.get("id", {}).get("videoId")
+            ]
+
+            if not ids:
+                return {"platform": platform, "query": q, "results": []}
+
+            stats_response = await client.get(
+                "https://www.googleapis.com/youtube/v3/videos",
+                params={
+                    "part": "snippet,statistics",
+                    "id": ",".join(ids),
+                    "key": YOUTUBE_API_KEY,
+                },
+                timeout=REQUEST_TIMEOUT,
+            )
+            stats_response.raise_for_status()
+
+            results = []
+
+            for video in stats_response.json().get("items", []):
+                snippet = video.get("snippet", {})
+                stats = video.get("statistics", {})
+                video_id = video.get("id")
+
+                views = int(stats.get("viewCount", 0) or 0)
+                likes = int(stats.get("likeCount", 0) or 0)
+                comments = int(stats.get("commentCount", 0) or 0)
+
+                published = parse_date(snippet.get("publishedAt"))
+                age_hours = max(
+                    1,
+                    (datetime.now(timezone.utc) -
+                     (published or datetime.now(timezone.utc))).total_seconds() / 3600
+                )
+
+                views_per_hour = int(views / age_hours)
+                engagement = round(
+                    ((likes + comments) / views * 100), 2
+                ) if views else 0
+
+                viral_score = min(
+                    100,
+                    int(
+                        min(45, views_per_hour / 1000)
+                        + min(30, engagement * 5)
+                        + min(25, views / 1000000 * 10)
+                    )
+                )
+
+                thumbnails = snippet.get("thumbnails", {})
+                thumbnail = (
+                    thumbnails.get("high")
+                    or thumbnails.get("medium")
+                    or thumbnails.get("default")
+                    or {}
+                )
+
+                results.append({
+                    "title": clean_text(snippet.get("title"), 200),
+                    "channel": clean_text(snippet.get("channelTitle"), 100),
+                    "url": f"https://www.youtube.com/watch?v={video_id}",
+                    "thumbnail": thumbnail.get("url", ""),
+                    "views": views,
+                    "likes": likes,
+                    "comments": comments,
+                    "views_per_hour": views_per_hour,
+                    "engagement": engagement,
+                    "viral_score": viral_score,
+                    "published_at": snippet.get("publishedAt"),
+                    "platform": "YouTube",
+                })
+
+            results.sort(
+                key=lambda item: item["viral_score"],
+                reverse=True
+            )
+
+            return {
+                "platform": "youtube",
+                "query": q,
+                "results": results,
+                "score_note": "TrendRadar estimate, not an official YouTube metric."
+            }
+
+        # Instagram: public indexed Reel discovery.
+        # This is not a complete live Instagram trending feed.
+        import xml.etree.ElementTree as ET
+
+        rss_response = await client.get(
+            "https://news.google.com/rss/search",
+            params={
+                "q": f"site:instagram.com/reel {q}",
+                "hl": "en-IN",
+                "gl": "IN",
+                "ceid": "IN:en",
+            },
+            headers={"User-Agent": "Mozilla/5.0 TrendRadarAI/1.0"},
+            timeout=REQUEST_TIMEOUT,
+        )
+        rss_response.raise_for_status()
+
+        root = ET.fromstring(rss_response.text)
+        results = []
+
+        for item in root.findall(".//item")[:15]:
+            title = clean_text(item.findtext("title"), 200)
+            link = clean_text(item.findtext("link"), 1000)
+            published = item.findtext("pubDate")
+
+            if not title or not link or not safe_http_url(link):
+                continue
+
+            results.append({
+                "title": title,
+                "url": link,
+                "published_at": published,
+                "platform": "Instagram",
+                "note": "Public indexed discovery. Views and likes are not verified."
+            })
+
+        return {
+            "platform": "instagram",
+            "query": q,
+            "results": results,
+            "notice": "Instagram results are based on publicly indexed content, not a complete live trending feed."
+        }
 
 @app.exception_handler(Exception)
 async def unexpected_error_handler(request: Request, exc: Exception):
