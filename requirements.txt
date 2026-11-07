@@ -1,0 +1,1 @@
+fastapi==0.115.12\nuvicorn[standard]==0.34.2\nhttpx==0.28.1\npython-dotenv==1.1.0\ngoogle-genai==1.16.1\nnumpy>=1.26,<3\nhuggingface-hub>=0.27\nonnxruntime>=1.20,<2\n
