@@ -437,6 +437,14 @@
 
   let selectedVisuals = {};
   let storyboardScenes = [];
+  function toggleImageUpload() {
+  const mode = document.querySelector('input[name="imageMode"]:checked')?.value;
+  $("ownImageUpload").style.display = mode === "upload" ? "block" : "none";
+}
+
+document.querySelectorAll('input[name="imageMode"]').forEach(input => {
+  input.addEventListener("change", toggleImageUpload);
+});
 
   async function findScriptVisuals() {
     const script = $("scriptOutput").value.trim();
