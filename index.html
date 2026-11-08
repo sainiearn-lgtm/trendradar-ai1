@@ -238,7 +238,7 @@
       <div id="audioPanel" class="audio-panel" hidden>
         <div class="audio-title">🎧 Your voiceover is ready</div>
         <audio id="voicePlayer" controls preload="none"></audio>
-        <a id="downloadAudio" class="btn secondary download-btn" download="sainiradar-voice.wav">⬇ Download WAV</a>
+        <a id="downloadAudio" class="btn secondary download-btn" download="trendradar-voice.wav">⬇ Download WAV</a>
       </div>
       <textarea id="scriptOutput" placeholder="Your AI-generated script will appear here…" spellcheck="false"></textarea>
       <div class="output-actions"><div id="scriptMessage" class="message" role="status"></div><button id="copyBtn" class="btn secondary">Copy script</button></div>
@@ -267,7 +267,7 @@
         </div>
       </div>
     </section>
-    <footer>Sainiradar · Built with public trend sources and Google Gemini · Keep your API keys on the server.</footer>
+    <footer>TrendRadar AI · Built with public trend sources and Google Gemini · Keep your API keys on the server.</footer>
   </main>
 
 <script>
@@ -675,7 +675,7 @@ uploadLabel.append(uploadInput);
     ctx.fillRect(42, 58, 240, 48);
     ctx.fillStyle = "#fff";
     ctx.font = "bold 25px Arial, sans-serif";
-    ctx.fillText("SAINIRADAR", 58, 90);
+    ctx.fillText("TRENDRADAR AI", 58, 90);
     ctx.font = "600 22px Arial, sans-serif";
     ctx.fillStyle = "rgba(255,255,255,.88)";
     ctx.fillText(`SCENE ${sceneNumber} / ${totalScenes}`, 48, height - 260);
@@ -820,7 +820,7 @@ uploadLabel.append(uploadInput);
       preview.hidden = false;
       const download = $("downloadVideo");
       download.href = videoUrl;
-      download.download = "sainiradar-video." + extension;
+      download.download = "trendradar-ai-video." + extension;
       download.textContent = `⬇ Download ${extension.toUpperCase()} video`;
       download.hidden = false;
       message.textContent = `Video ready! ${Math.round(duration)} sec · ${extension.toUpperCase()} · ${Math.round(blob.size / 1024 / 1024 * 10) / 10} MB. Preview karo aur download kar lo.`;
@@ -1065,7 +1065,7 @@ Keep the reporting factual. Do not invent facts or unverified details.`;
         const score = document.createElement("div");
         score.className = "score";
         score.style.margin = "12px 0";
-        score.textContent = video.viral_score !== undefined ? `Sainiradar Viral Score: ${video.viral_score}/100` : "Instagram public discovery";
+        score.textContent = video.viral_score !== undefined ? `TrendRadar Viral Score: ${video.viral_score}/100` : "Instagram public discovery";
         const actions = document.createElement("div");
         actions.className = "card-actions";
         const useButton = document.createElement("button");
