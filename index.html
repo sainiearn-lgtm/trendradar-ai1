@@ -553,7 +553,7 @@ uploadLabel.append(uploadInput);
         credit.textContent = options.length
           ? `Source: ${options[0].provider || "Image provider"} · License: ${options[0].license} · Creator: ${options[0].artist} · Tap multiple photos to select/deselect.`
           : "No image result available.";
-        card.append(heading, narration, query, images, credit);
+        card.append(heading, narration, query, images, uploadLabel, credit);
         $("visualScenes").append(card);
       });
       const count = scenes.reduce((sum, scene) => sum + (scene.images || []).length, 0);
