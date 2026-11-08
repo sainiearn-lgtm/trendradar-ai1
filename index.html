@@ -439,7 +439,29 @@
 document.querySelectorAll('input[name="imageMode"]').forEach(input => {
   input.addEventListener("change", toggleImageUpload);
 });
+async function generateAiImage(prompt) {
+  const data = await readJson(await fetch(apiUrl("/api/ai-image"), {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({prompt})
+  }));
 
+  const requestId = data.request_id;
+
+  for (let i = 0; i < 45; i++) {
+    await new Promise(resolve => setTimeout(resolve, 8000));
+
+    const result = await readJson(await fetch(
+      apiUrl("/api/ai-image/" + encodeURIComponent(requestId))
+    ));
+
+    if (result.status === "done" && result.image_url) {
+      return result.image_url;
+    }
+  }
+
+  throw new Error("AI image abhi ready nahi hui. Baad mein retry karein.");
+}
   async function findScriptVisuals() {
     const script = $("scriptOutput").value.trim();
     const topic = $("customTopic").value.trim() || "Video";
@@ -476,6 +498,53 @@ document.querySelectorAll('input[name="imageMode"]').forEach(input => {
         query.textContent = `Image search: ${scene.search_query || topic}`;
         const images = document.createElement("div");
         images.className = "visual-images";
+        const aiButton = document.createElement("button");
+aiButton.type = "button";
+aiButton.className = "btn secondary";
+aiButton.textContent = "✨ Generate AI Image";
+
+aiButton.addEventListener("click", async () => {
+  aiButton.disabled = true;
+  aiButton.textContent = "Generating...";
+
+  try {
+    const prompt = `${scene.visual || scene.search_query || topic}, realistic cinematic vertical 9:16 image`;
+    const imageUrl = await generateAiImage(prompt);
+
+    const item = {
+      image_url: imageUrl,
+      title: "AI Generated Image",
+      provider: "AI Horde"
+    };
+
+    const choice = document.createElement("button");
+    choice.type = "button";
+    choice.className = "visual-choice";
+
+    const img = document.createElement("img");
+    img.src = imageUrl;
+    img.alt = item.title;
+
+    const title = document.createElement("span");
+    title.textContent = item.title;
+
+    choice.append(img, title);
+
+    choice.addEventListener("click", () => {
+      selectedVisuals[scene.scene] = [item];
+      choice.classList.add("selected");
+      updateVisualSelectionStatus();
+    });
+
+    images.append(choice);
+    aiButton.textContent = "✨ Generate Another";
+  } catch (error) {
+    aiButton.textContent = "Retry AI Image";
+    $("visualMessage").textContent = error.message;
+  } finally {
+    aiButton.disabled = false;
+  }
+});
         const options = Array.isArray(scene.images) ? scene.images : [];
         if (!options.length) {
           const empty = document.createElement("p");
