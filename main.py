@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import html
 import json
 import logging
@@ -43,6 +44,7 @@ GEMINI_API_KEYS = [
 
 # Optional Pixabay API key for stock photos. Never log this value.
 PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY", "").strip()
+POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY", "").strip()
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "").strip()
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip()
 # Optional: set this in Render only if you have confirmed that the model is
@@ -254,6 +256,7 @@ async def health():
         "gemini_keys_configured": len(GEMINI_API_KEYS),
         "gemini_model": GEMINI_MODEL,
         "youtube_configured": bool(YOUTUBE_API_KEY),
+        "pollinations_configured": bool(POLLINATIONS_API_KEY),
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -1329,108 +1332,101 @@ Script:
 
 @app.post("/api/ai-image")
 async def generate_ai_image(payload: dict):
+    """Generate one vertical image through Pollinations; the secret stays server-side."""
     prompt = clean_text(payload.get("prompt"), 700)
 
     if len(prompt) < 5:
         raise HTTPException(status_code=400, detail="Image prompt is too short.")
 
-    headers = {
-        "apikey": "0000000000",
-        "Client-Agent": "TrendRadarAI:1.9.3:https://github.com/sainiearn-lgtm/trendradar-ai1"
-    }
-
-    body = {
-        "prompt": prompt,
-        "params": {
-            "width": 576,
-            "height": 1024,
-            "steps": 20,
-            "n": 1,
-            "cfg_scale": 7
-        },
-        "nsfw": False,
-        "censor_nsfw": True,
-        "r2": True
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=25) as client:
-            response = await client.post(
-                "https://aihorde.net/api/v2/generate/async",
-                headers=headers,
-                json=body
-            )
-            response.raise_for_status()
-            result = response.json()
-
-        return {
-            "request_id": result["id"],
-            "status": "processing",
-            "message": "AI image generation started."
-        }
-
-    except Exception as exc:
-        logger.error("AI Horde request failed: %s", exc)
+    if not POLLINATIONS_API_KEY:
         raise HTTPException(
-            status_code=502,
-            detail="AI image service is temporarily unavailable."
+            status_code=503,
+            detail="AI image generation is not configured. Add POLLINATIONS_API_KEY in Render."
         )
 
-
-@app.get("/api/ai-image/{request_id}")
-async def get_ai_image(request_id: str):
-    if not request_id or len(request_id) > 80 or not all(c.isalnum() or c == "-" for c in request_id):
-        raise HTTPException(status_code=400, detail="Invalid request ID.")
-
+    url = f"https://gen.pollinations.ai/image/{quote(prompt, safe='')}"
+    params = {
+        "model": "black-forest-labs/flux.1-schnell",
+        "width": 576,
+        "height": 1024,
+    }
     headers = {
-        "apikey": "0000000000",
-        "Client-Agent": "TrendRadarAI:1.9.3:https://github.com/sainiearn-lgtm/trendradar-ai1"
+        "Authorization": f"Bearer {POLLINATIONS_API_KEY}",
+        "Accept": "image/*",
     }
 
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            check_response = await client.get(
-                f"https://aihorde.net/api/v2/generate/check/{request_id}",
-                headers=headers
+        timeout = httpx.Timeout(120.0, connect=15.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            response = await client.get(url, params=params, headers=headers)
+
+        if response.status_code in {401, 403}:
+            logger.warning("Pollinations rejected the configured API key (HTTP %s)", response.status_code)
+            raise HTTPException(
+                status_code=502,
+                detail="Pollinations API key was rejected. Check the key and its Image permission in Render."
             )
-            check_response.raise_for_status()
-            check = check_response.json()
-
-            if not check.get("done"):
-                return {
-                    "status": "processing",
-                    "queue_position": check.get("queue_position"),
-                    "wait_time": check.get("wait_time")
-                }
-
-            status_response = await client.get(
-                f"https://aihorde.net/api/v2/generate/status/{request_id}",
-                headers=headers
+        if response.status_code == 402:
+            raise HTTPException(
+                status_code=402,
+                detail="Pollinations balance or key budget is insufficient. Check your Pollinations account."
             )
-            status_response.raise_for_status()
-            result = status_response.json()
+        if response.status_code == 429:
+            raise HTTPException(
+                status_code=429,
+                detail="Pollinations is rate-limiting image generation. Please wait and retry."
+            )
+        if response.status_code >= 500:
+            logger.warning("Pollinations image service returned HTTP %s", response.status_code)
+            raise HTTPException(
+                status_code=502,
+                detail="Pollinations image service is temporarily busy. Please retry shortly."
+            )
 
-        generations = result.get("generations") or []
+        response.raise_for_status()
+        content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
+        if not content_type.startswith("image/"):
+            logger.warning("Pollinations returned a non-image response (content-type: %s)", content_type or "missing")
+            raise HTTPException(
+                status_code=502,
+                detail="Pollinations did not return an image. Please retry."
+            )
+        if not response.content or len(response.content) > 15 * 1024 * 1024:
+            raise HTTPException(
+                status_code=502,
+                detail="Generated image was empty or too large. Please retry."
+            )
 
-        if not generations:
-            return {"status": "processing", "message": "Image is finishing."}
-
-        image_url = generations[0].get("img")
-
-        if not image_url:
-            raise HTTPException(status_code=502, detail="AI image result missing.")
-
+        encoded = base64.b64encode(response.content).decode("ascii")
+        image_data_url = f"data:{content_type};base64,{encoded}"
         return {
             "status": "done",
-            "image_url": image_url,
-            "worker_name": generations[0].get("worker_name", "AI Horde")
+            "image_url": image_data_url,
+            "provider": "Pollinations AI",
         }
 
     except HTTPException:
         raise
+    except httpx.TimeoutException as exc:
+        logger.warning("Pollinations image generation timed out: %s", exc)
+        raise HTTPException(
+            status_code=504,
+            detail="AI image generation is taking too long. Please retry."
+        ) from exc
+    except httpx.HTTPStatusError as exc:
+        logger.warning("Pollinations image request failed with HTTP %s", exc.response.status_code)
+        raise HTTPException(
+            status_code=502,
+            detail="Pollinations image request failed. Please retry."
+        ) from exc
     except Exception as exc:
-        logger.error("AI Horde status failed: %s", exc)
-        raise HTTPException(status_code=502, detail="Could not retrieve AI image.")
+        logger.exception("Pollinations image generation failed")
+        raise HTTPException(
+            status_code=502,
+            detail="AI image service is temporarily unavailable."
+        ) from exc
+
+
 @app.get("/api/voice/voices")
 async def list_voice_options():
     return {

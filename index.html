@@ -244,9 +244,9 @@
         <div class="image-mode-panel" style="margin-top:14px">
   <h3>Choose Image Source</h3>
   <label><input type="radio" name="imageMode" value="internet" checked> 🌐 Internet Images</label>
-  <label><input type="radio" name="imageMode" value="ai"> ✨ Free AI Images</label>
+  <label><input type="radio" name="imageMode" value="ai"> ✨ AI Images (Pollinations)</label>
   <label><input type="radio" name="imageMode" value="upload"> 📁 Upload Own Images</label>
-  <p class="sub">AI image generation will be available for vertical Shorts (9:16).</p>
+  <p class="sub">AI images use Pollinations. Generation may consume account credits or budget.</p>
         </div>
         <div id="ownImageUpload" style="display:none;margin-top:12px">
   <p class="sub">Har Scene mein "Choose your own image for this scene" par tap karke apni photo upload karein.</p>
@@ -455,18 +455,8 @@ async function generateAiImage(prompt) {
     body: JSON.stringify({prompt})
   }));
 
-  const requestId = data.request_id;
-
-  for (let i = 0; i < 45; i++) {
-    await new Promise(resolve => setTimeout(resolve, 8000));
-
-    const result = await readJson(await fetch(
-      apiUrl("/api/ai-image/" + encodeURIComponent(requestId))
-    ));
-
-    if (result.status === "done" && result.image_url) {
-      return result.image_url;
-    }
+  if (data.status === "done" && data.image_url) {
+    return data.image_url;
   }
 
   throw new Error("AI image abhi ready nahi hui. Baad mein retry karein.");
@@ -523,7 +513,7 @@ aiButton.addEventListener("click", async () => {
     const item = {
       image_url: imageUrl,
       title: "AI Generated Image",
-      provider: "AI Horde"
+      provider: "Pollinations AI"
     };
 
     const choice = document.createElement("button");
