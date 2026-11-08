@@ -756,7 +756,16 @@ uploadLabel.append(uploadInput);
       const ctx = canvas.getContext("2d");
       const canvasStream = canvas.captureStream(30);
       const combined = new MediaStream([...canvasStream.getVideoTracks(), ...audioDestination.stream.getAudioTracks()]);
-      const mimeCandidates = ["video/mp4;codecs=h264,aac", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
+      // Prefer broadly compatible H.264 + AAC MP4 for Instagram/KineMaster.
+      const mimeCandidates = [
+        "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+        "video/mp4;codecs=avc1.42001E,mp4a.40.2",
+        "video/mp4;codecs=h264,aac",
+        "video/mp4",
+        "video/webm;codecs=vp9,opus",
+        "video/webm;codecs=vp8,opus",
+        "video/webm"
+      ];
       const mimeType = mimeCandidates.find(type => MediaRecorder.isTypeSupported(type)) || "";
       const recorder = new MediaRecorder(combined, mimeType ? {mimeType} : undefined);
       const chunks = [];
@@ -780,16 +789,26 @@ uploadLabel.append(uploadInput);
         message.textContent = `Video render ho raha hai… ${percent}%`;
         if (elapsed < duration && recorder.state === "recording") rafId = requestAnimationFrame(paint);
       };
-      recorder.start(250);
+      // Avoid fragmented MP4 chunks: a single finalized recording is more reliable
+      // in social-media uploaders and mobile editing apps.
+      recorder.start();
       rafId = requestAnimationFrame(paint);
+      audioSource.onended = () => {
+        cancelAnimationFrame(rafId);
+        if (recorder.state !== "inactive") recorder.stop();
+      };
       audioSource.start();
-      await new Promise(resolve => setTimeout(resolve, Math.ceil(duration * 1000) + 350));
-      cancelAnimationFrame(rafId);
-      if (recorder.state !== "inactive") recorder.stop();
+      // Safety stop in case a browser fails to dispatch the audio ended event.
+      const safetyStop = setTimeout(() => {
+        cancelAnimationFrame(rafId);
+        if (recorder.state !== "inactive") recorder.stop();
+      }, Math.ceil(duration * 1000) + 2000);
       await finished;
+      clearTimeout(safetyStop);
       audioSource.disconnect();
       combined.getTracks().forEach(track => track.stop());
-      const type = mimeType.startsWith("video/mp4") ? "video/mp4" : "video/webm";
+      const actualMime = recorder.mimeType || mimeType || "video/webm";
+      const type = actualMime.toLowerCase().startsWith("video/mp4") ? "video/mp4" : "video/webm";
       const extension = type === "video/mp4" ? "mp4" : "webm";
       const blob = new Blob(chunks, {type});
       if (!blob.size) throw new Error("Video file empty bani. Browser mein dobara try karein.");
