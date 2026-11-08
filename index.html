@@ -610,6 +610,7 @@ uploadLabel.append(uploadInput);
           : "No image result available.";
         card.append(heading, narration, query, images, aiButton, uploadLabel, credit);
         $("visualScenes").append(card);
+        toggleImageUpload();
       });
       const count = scenes.reduce((sum, scene) => sum + (scene.images || []).length, 0);
       $("visualMessage").textContent = `${scenes.length} scenes ready · ${count} photo options found. Tap one or more photos in every scene.`;
