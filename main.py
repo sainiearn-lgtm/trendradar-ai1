@@ -923,7 +923,7 @@ async def proxy_pixabay_image(url: str):
     """Fetch approved image hosts server-side and cache image bytes for 24 hours."""
     parsed = urlparse(url)
     host = (parsed.hostname or "").lower()
-            allowed_hosts = (
+                allowed_hosts = (
         "pixabay.com", "wikimedia.org", "flickr.com", "staticflickr.com",
         "wordpress.com", "wp.com", "creativecommons.org", "openverse.org",
         "unsplash.com",
