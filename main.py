@@ -1327,7 +1327,9 @@ Script:
         "missing_scenes": [scene["scene"] for scene in output if not scene["images"]],
     }
 
-
+@app.post("/api/ai-image")
+async def generate_ai_image():
+    return {"status": "AI image endpoint ready"}
 @app.get("/api/voice/voices")
 async def list_voice_options():
     return {
