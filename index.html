@@ -241,6 +241,16 @@
       <div id="visualTools" class="panel" style="margin-top:18px">
         <div class="studio-head"><div><h2>🖼️ Script-to-Image Storyboard</h2><p>Generated script ke scenes ke hisaab se matching photos dhoondho aur select karo.</p></div><span class="tag">IMAGE STORYBOARD V1</span></div>
         <button id="findVisualsBtn" class="btn" type="button">Find matching images ✨</button>
+        <div class="image-mode-panel" style="margin-top:14px">
+  <h3>Choose Image Source</h3>
+  <label><input type="radio" name="imageMode" value="internet" checked> 🌐 Internet Images</label>
+  <label><input type="radio" name="imageMode" value="ai"> ✨ Free AI Images</label>
+  <label><input type="radio" name="imageMode" value="upload"> 📁 Upload Own Images</label>
+  <p class="sub">AI image generation will be available for vertical Shorts (9:16).</p>
+        </div>
+        <div id="ownImageUpload" style="display:none;margin-top:12px">
+  <p class="sub">Har Scene mein "Choose your own image for this scene" par tap karke apni photo upload karein.</p>
+</div>
         <div id="visualMessage" class="message" role="status" style="margin-top:12px"></div>
         <div id="visualScenes" class="grid" style="margin-top:16px"></div>
         <div class="video-maker">
@@ -421,7 +431,46 @@
 
   let selectedVisuals = {};
   let storyboardScenes = [];
+  function toggleImageUpload() {
+  const mode = document.querySelector('input[name="imageMode"]:checked')?.value;
+  $("ownImageUpload").style.display = mode === "upload" ? "block" : "none";
+  document.querySelectorAll(".ai-image-button").forEach(button => {
+    button.hidden = mode !== "ai";
+  });
+    document.querySelectorAll(".internet-image-choice").forEach(button => {
+  button.hidden = mode !== "internet";
+});
+    document.querySelectorAll(".own-image-upload").forEach(label => {
+  label.hidden = mode !== "upload";
+});
+  }
 
+document.querySelectorAll('input[name="imageMode"]').forEach(input => {
+  input.addEventListener("change", toggleImageUpload);
+});
+async function generateAiImage(prompt) {
+  const data = await readJson(await fetch(apiUrl("/api/ai-image"), {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({prompt})
+  }));
+
+  const requestId = data.request_id;
+
+  for (let i = 0; i < 45; i++) {
+    await new Promise(resolve => setTimeout(resolve, 8000));
+
+    const result = await readJson(await fetch(
+      apiUrl("/api/ai-image/" + encodeURIComponent(requestId))
+    ));
+
+    if (result.status === "done" && result.image_url) {
+      return result.image_url;
+    }
+  }
+
+  throw new Error("AI image abhi ready nahi hui. Baad mein retry karein.");
+}
   async function findScriptVisuals() {
     const script = $("scriptOutput").value.trim();
     const topic = $("customTopic").value.trim() || "Video";
@@ -458,6 +507,53 @@
         query.textContent = `Image search: ${scene.search_query || topic}`;
         const images = document.createElement("div");
         images.className = "visual-images";
+        const aiButton = document.createElement("button");
+aiButton.type = "button";
+aiButton.className = "btn secondary ai-image-button";
+aiButton.textContent = "✨ Generate AI Image";
+
+aiButton.addEventListener("click", async () => {
+  aiButton.disabled = true;
+  aiButton.textContent = "Generating...";
+
+  try {
+    const prompt = `${scene.visual || scene.search_query || topic}, realistic cinematic vertical 9:16 image`;
+    const imageUrl = await generateAiImage(prompt);
+
+    const item = {
+      image_url: imageUrl,
+      title: "AI Generated Image",
+      provider: "AI Horde"
+    };
+
+    const choice = document.createElement("button");
+    choice.type = "button";
+    choice.className = "visual-choice";
+
+    const img = document.createElement("img");
+    img.src = imageUrl;
+    img.alt = item.title;
+
+    const title = document.createElement("span");
+    title.textContent = item.title;
+
+    choice.append(img, title);
+
+    choice.addEventListener("click", () => {
+      selectedVisuals[scene.scene] = [item];
+      choice.classList.add("selected");
+      updateVisualSelectionStatus();
+    });
+
+    images.append(choice);
+    aiButton.textContent = "✨ Generate Another";
+  } catch (error) {
+    aiButton.textContent = "Retry AI Image";
+    $("visualMessage").textContent = error.message;
+  } finally {
+    aiButton.disabled = false;
+  }
+});
         const options = Array.isArray(scene.images) ? scene.images : [];
         if (!options.length) {
           const empty = document.createElement("p");
@@ -467,7 +563,7 @@
         options.forEach((item, index) => {
           const choice = document.createElement("button");
           choice.type = "button";
-          choice.className = "visual-choice";
+          choice.className = "visual-choice internet-image-choice";
           const img = document.createElement("img");
           img.loading = "lazy";
           img.src = item.image_url.startsWith("/") ? apiUrl(item.image_url) : item.image_url;
@@ -490,13 +586,38 @@
           });
           images.append(choice);
         });
+        const uploadLabel = document.createElement("label");
+uploadLabel.textContent = "📁 Choose your own image for this scene";
+        uploadLabel.className = "own-image-upload";
+
+const uploadInput = document.createElement("input");
+uploadInput.type = "file";
+uploadInput.accept = "image/*";
+
+uploadInput.addEventListener("change", () => {
+  const file = uploadInput.files[0];
+  if (!file) return;
+
+  const imageUrl = URL.createObjectURL(file);
+
+  selectedVisuals[scene.scene] = [{
+    image_url: imageUrl,
+    title: file.name,
+    provider: "Your Upload"
+  }];
+
+  updateVisualSelectionStatus();
+});
+
+uploadLabel.append(uploadInput);
         const credit = document.createElement("div");
         credit.className = "visual-credit";
         credit.textContent = options.length
           ? `Source: ${options[0].provider || "Image provider"} · License: ${options[0].license} · Creator: ${options[0].artist} · Tap multiple photos to select/deselect.`
           : "No image result available.";
-        card.append(heading, narration, query, images, credit);
+        card.append(heading, narration, query, images, aiButton, uploadLabel, credit);
         $("visualScenes").append(card);
+        toggleImageUpload();
       });
       const count = scenes.reduce((sum, scene) => sum + (scene.images || []).length, 0);
       $("visualMessage").textContent = `${scenes.length} scenes ready · ${count} photo options found. Tap one or more photos in every scene.`;
@@ -531,9 +652,11 @@
       img.onerror = () => reject(new Error(
         "Selected image load nahi hui. Dusri image select karke retry karein."
       ));
-      const finalUrl = url.startsWith("/")
-        ? apiUrl(url)
-        : apiUrl("/api/image-proxy?url=" + encodeURIComponent(url));
+      const finalUrl = (url.startsWith("blob:") || url.startsWith("data:"))
+  ? url
+  : url.startsWith("/")
+    ? apiUrl(url)
+    : apiUrl("/api/image-proxy?url=" + encodeURIComponent(url));
       img.src = finalUrl;
     });
   }
