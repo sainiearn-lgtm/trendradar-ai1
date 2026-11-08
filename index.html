@@ -589,9 +589,11 @@ uploadLabel.append(uploadInput);
       img.onerror = () => reject(new Error(
         "Selected image load nahi hui. Dusri image select karke retry karein."
       ));
-      const finalUrl = url.startsWith("/")
-        ? apiUrl(url)
-        : apiUrl("/api/image-proxy?url=" + encodeURIComponent(url));
+      const finalUrl = (url.startsWith("blob:") || url.startsWith("data:"))
+  ? url
+  : url.startsWith("/")
+    ? apiUrl(url)
+    : apiUrl("/api/image-proxy?url=" + encodeURIComponent(url));
       img.src = finalUrl;
     });
   }
