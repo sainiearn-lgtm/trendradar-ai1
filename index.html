@@ -434,7 +434,10 @@
   function toggleImageUpload() {
   const mode = document.querySelector('input[name="imageMode"]:checked')?.value;
   $("ownImageUpload").style.display = mode === "upload" ? "block" : "none";
-}
+  document.querySelectorAll(".ai-image-button").forEach(button => {
+    button.hidden = mode !== "ai";
+  });
+  }
 
 document.querySelectorAll('input[name="imageMode"]').forEach(input => {
   input.addEventListener("change", toggleImageUpload);
