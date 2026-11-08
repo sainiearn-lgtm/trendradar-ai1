@@ -1327,79 +1327,7 @@ Script:
         "missing_scenes": [scene["scene"] for scene in output if not scene["images"]],
     }
 
-@app.post("/api/ai-image")
-async def generate_ai_image(payload: dict):
-    prompt = clean_text(payload.get("prompt"), 700)
 
-    if len(prompt) < 5:
-        raise HTTPException(status_code=400, detail="Image prompt is too short.")
-
-    headers = {
-        "apikey": "0000000000",
-        "Client-Agent": "TrendRadarAI:1.9.3:https://github.com/sainiearn-lgtm/trendradar-ai1"
-    }
-
-    body = {
-        "prompt": prompt,
-        "params": {
-            "width": 576,
-            "height": 1024,
-            "steps": 20,
-            "n": 1,
-            "cfg_scale": 7
-        },
-        "nsfw": False,
-        "censor_nsfw": True,
-        "r2": True
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=25) as client:
-            response = await client.post(
-                "https://aihorde.net/api/v2/generate/async",
-                headers=headers,
-                json=body
-            )
-            response.raise_for_status()
-            result = response.json()
-
-        return {
-            "request_id": result["id"],
-            "status": "processing",
-            "message": "AI image generation started."
-        }
-
-    except Exception as exc:
-        logger.error("AI Horde request failed: %s", exc)
-        raise HTTPException(
-            status_code=502,
-            detail="AI image service is temporarily unavailable."
-        )
-        @app.get("/api/ai-image/{request_id}")
-async def get_ai_image(request_id: str):
-    if not request_id or len(request_id) > 80 or not all(c.isalnum() or c == "-" for c in request_id):
-        raise HTTPException(status_code=400, detail="Invalid request ID.")
-
-    headers = {
-        "apikey": "0000000000",
-        "Client-Agent": "TrendRadarAI:1.9.3:https://github.com/sainiearn-lgtm/trendradar-ai1"
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            check_response = await client.get(
-                f"https://aihorde.net/api/v2/generate/check/{request_id}",
-                headers=headers
-            )
-            check_response.raise_for_status()
-            check = check_response.json()
-
-            if not check.get("done"):
-                return {
-                    "status": "processing",
-                    "queue_position": check.get("queue_position"),
-                    "wait_time": check.get("wait_time")
-                }
 @app.get("/api/voice/voices")
 async def list_voice_options():
     return {
