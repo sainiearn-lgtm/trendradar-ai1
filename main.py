@@ -29,7 +29,7 @@ load_dotenv()
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger("trendradar")
 
-APP_VERSION = "1.9.2"
+APP_VERSION = "1.9.3"
 
 # Read both keys. Empty keys are ignored; never log key values.
 GEMINI_API_KEYS = [
