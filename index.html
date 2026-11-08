@@ -440,6 +440,9 @@
     document.querySelectorAll(".internet-image-choice").forEach(button => {
   button.hidden = mode !== "internet";
 });
+    document.querySelectorAll(".own-image-upload").forEach(label => {
+  label.hidden = mode !== "upload";
+});
   }
 
 document.querySelectorAll('input[name="imageMode"]').forEach(input => {
