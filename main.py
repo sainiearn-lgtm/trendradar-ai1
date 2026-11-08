@@ -922,12 +922,12 @@ def _render_indic_audio(text: str, gender: str, speed: int, pitch: int, volume: 
 async def proxy_pixabay_image(url: str):
     """Fetch approved image hosts server-side and cache image bytes for 24 hours."""
     parsed = urlparse(url)
-    host = (parsed.hostname or "").lower()
-        allowed_hosts = (
+        host = (parsed.hostname or "").lower()
+    allowed_hosts = (
         "pixabay.com", "wikimedia.org", "flickr.com", "staticflickr.com",
         "wordpress.com", "wp.com", "creativecommons.org", "openverse.org",
         "unsplash.com",
-        )
+    )
     allowed = any(host == domain or host.endswith("." + domain) for domain in allowed_hosts)
     if parsed.scheme != "https" or not allowed:
         raise HTTPException(status_code=400, detail="Unsupported image host.")
