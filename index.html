@@ -699,6 +699,33 @@ uploadLabel.append(uploadInput);
     ctx.shadowBlur = 0;
   }
 
+  // Build estimated sentence timings from the exact narration used for TTS.
+  // The browser renderer has the final WAV duration but no phoneme-level alignment data.
+  function buildSubtitleTimeline(audioDuration) {
+    const narration = getNarrationText($("scriptOutput").value);
+    const sentences = narration
+      .replace(/\r/g, "")
+      .split(/(?<=[।!?])\s+|\n+/)
+      .map(text => text.trim())
+      .filter(text => text && /[\u0900-\u097F]/.test(text));
+    if (!sentences.length) return [];
+    const weights = sentences.map(text => Math.max(1, text.replace(/\s/g, "").length));
+    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+    let cursor = 0;
+    return sentences.map((text, index) => {
+      const start = cursor;
+      cursor += audioDuration * weights[index] / totalWeight;
+      return {text, start: Math.max(0, start - 0.12), end: Math.min(audioDuration, cursor)};
+    });
+  }
+
+  function subtitleAtTime(timeline, elapsed) {
+    if (!timeline.length) return "";
+    const current = timeline.find(item => elapsed >= item.start && elapsed < item.end);
+    if (current) return current.text;
+    return elapsed < timeline[0].start ? "" : timeline[timeline.length - 1].text;
+  }
+
   async function createBrowserVideo() {
     const button = $("createVideoBtn");
     const message = $("videoMessage");
@@ -740,13 +767,15 @@ uploadLabel.append(uploadInput);
       });
       const duration = audioBuffer.duration;
       const sceneDuration = duration / loaded.length;
+      const subtitleTimeline = buildSubtitleTimeline(duration);
       const start = performance.now();
       let rafId;
       const paint = now => {
         const elapsed = Math.min((now - start) / 1000, duration);
         const index = Math.min(loaded.length - 1, Math.floor(elapsed / sceneDuration));
         const item = loaded[index];
-        drawVideoFrame(ctx, item.bitmap, item.scene.narration || item.scene.visual, index + 1, loaded.length, canvas.width, canvas.height);
+        const activeSubtitle = subtitleAtTime(subtitleTimeline, elapsed);
+        drawVideoFrame(ctx, item.bitmap, activeSubtitle || item.scene.visual, index + 1, loaded.length, canvas.width, canvas.height);
         const percent = Math.min(99, Math.floor(elapsed / duration * 100));
         message.textContent = `Video render ho raha hai… ${percent}%`;
         if (elapsed < duration && recorder.state === "recording") rafId = requestAnimationFrame(paint);
