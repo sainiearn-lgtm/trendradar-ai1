@@ -575,8 +575,32 @@ aiButton.addEventListener("click", async () => {
           choice.className = "visual-choice internet-image-choice";
           const img = document.createElement("img");
           img.loading = "lazy";
-          img.src = item.image_url.startsWith("/") ? apiUrl(item.image_url) : item.image_url;
           img.alt = item.title || scene.visual || "Suggested scene image";
+          // Try the server-side image proxy first (avoids many hotlink/CORS issues).
+          // If the source host is not supported by the proxy, try the original URL.
+          const originalImageUrl = item.image_url;
+          const isLocalImage = originalImageUrl.startsWith("/") ||
+            originalImageUrl.startsWith("blob:") || originalImageUrl.startsWith("data:");
+          img.dataset.proxyFallbackTried = "false";
+          img.onerror = () => {
+            if (!isLocalImage && img.dataset.proxyFallbackTried === "false") {
+              img.dataset.proxyFallbackTried = "true";
+              img.src = originalImageUrl;
+              return;
+            }
+            // Never leave a broken-image icon in the scene grid.
+            const selected = Array.isArray(selectedVisuals[scene.scene])
+              ? selectedVisuals[scene.scene] : [];
+            selectedVisuals[scene.scene] = selected.filter(entry =>
+              entry.image_url !== originalImageUrl
+            );
+            if (!selectedVisuals[scene.scene].length) delete selectedVisuals[scene.scene];
+            choice.remove();
+            updateVisualSelectionStatus();
+          };
+          img.src = isLocalImage
+            ? (originalImageUrl.startsWith("/") ? apiUrl(originalImageUrl) : originalImageUrl)
+            : apiUrl("/api/image-proxy?url=" + encodeURIComponent(originalImageUrl));
           const title = document.createElement("span");
           title.textContent = item.title || `Image ${index + 1}`;
           choice.append(img, title);
