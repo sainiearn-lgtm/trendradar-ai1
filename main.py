@@ -169,8 +169,15 @@ async def fetch_google_trends(client: httpx.AsyncClient, region: str) -> list[di
 
 async def fetch_gdelt(client: httpx.AsyncClient, region: str) -> list[dict]:
     country = REGIONS[region]["gdelt"]
+    # Restrict articles to publishers originating in the selected country.
+    # A plain search for the word "India" also returns international stories
+    # that merely mention India, which polluted the India trend feed.
+    country_codes = {"IN": {"india", "ind", "in"}, "US": {"united states", "usa", "us"},
+                     "GB": {"united kingdom", "uk", "gb"}, "CA": {"canada", "ca"},
+                     "AU": {"australia", "au"}, "DE": {"germany", "de"}}
     params = {
-        "query": f'"{country}"', "mode": "ArtList", "format": "json",
+        "query": f"sourcecountry:{ {'IN':'IND','US':'USA','GB':'GBR','CA':'CAN','AU':'AUS','DE':'DEU'}.get(region, 'IND') }",
+        "mode": "ArtList", "format": "json",
         "sort": "HybridRel", "maxrecords": "50", "timespan": "24h",
     }
     response = await client.get("https://api.gdeltproject.org/api/v2/doc/doc", params=params, timeout=REQUEST_TIMEOUT)
@@ -178,6 +185,9 @@ async def fetch_gdelt(client: httpx.AsyncClient, region: str) -> list[dict]:
     data = response.json()
     rows = []
     for article in data.get("articles", []) or []:
+        source_country = clean_text(article.get("sourcecountry"), 80).casefold()
+        if source_country not in country_codes.get(region, set()):
+            continue
         title = clean_text(article.get("title"), 180)
         url = article.get("url", "")
         if not title or not safe_http_url(url):
@@ -186,7 +196,7 @@ async def fetch_gdelt(client: httpx.AsyncClient, region: str) -> list[dict]:
         domain = clean_text(article.get("domain") or urlparse(url).netloc, 100)
         rows.append({
             "title": title,
-            "summary": clean_text(article.get("socialimage") or article.get("sourcecountry") or f"Recent news coverage related to {country}.", 450),
+            "summary": clean_text(article.get("socialimage") or f"Recent news coverage from {country}.", 450),
             "source": f"GDELT · {domain}", "source_url": url,
             "published_at": (published or datetime.now(timezone.utc)).isoformat(),
             "category": clean_text(article.get("tone"), 40) or "News",
