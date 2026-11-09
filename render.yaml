@@ -2,7 +2,7 @@ services:
   - type: web
     name: trendradar-ai-api
     runtime: python
-    rootDir: backend
+    rootDir: .
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
