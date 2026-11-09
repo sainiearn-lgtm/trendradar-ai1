@@ -245,6 +245,7 @@
     <button class="side-link active" type="button" data-target="pageTop"><span>⌂</span>Dashboard</button>
     <button class="side-link" type="button" data-target="trendKeywords"><span>🔥</span>Trend Keywords</button>
     <button class="side-link" type="button" data-target="opportunityFinder"><span>🚀</span>Opportunity Finder</button>
+    <button class="side-link" type="button" data-target="trendPredictions"><span>📈</span>Trend Predictions</button>
     <button class="side-link" type="button" data-target="breakingNews"><span>📰</span>Latest News</button>
     <button class="side-link" type="button" data-target="videoResearch"><span>▶</span>Viral Video Research</button>
     <button class="side-link" type="button" data-target="studio"><span>✦</span>AI Script Studio</button>
@@ -304,6 +305,22 @@
       <div id="opportunityMessage" class="message" role="status" style="margin-top:12px">Tap “Find opportunities” to analyse the currently available trend feed.</div>
       <div id="opportunityResults" class="opportunity-grid"></div>
       <p class="notice">Opportunity scores are estimates, not viral predictions. Creator competition is not measured yet. Results reuse the existing trend feed; no separate polling or AI generation runs in the background.</p>
+    </section>
+
+    <section class="panel" id="trendPredictions">
+      <div class="studio-head">
+        <div><h2>📈 Trend Direction Lab</h2><p>Recent snapshots se dekho kaun-se topics ki momentum badh rahi hai ya gir rahi hai.</p></div>
+        <span class="tag">BETA · SNAPSHOT BASED</span>
+      </div>
+      <div class="opportunity-toolbar">
+        <div class="sub">Selected region: <strong id="predictionRegion">India</strong> · Runs only when you ask</div>
+        <div class="opportunity-actions">
+          <button id="predictionRefreshBtn" class="btn" type="button">Analyse trend direction 📈</button>
+        </div>
+      </div>
+      <div id="predictionMessage" class="message" role="status" style="margin-top:12px">Tap “Analyse trend direction” to compare recent trend snapshots.</div>
+      <div id="predictionResults" class="opportunity-grid"></div>
+      <p class="notice">Direction estimates need at least two snapshots. First use may show “Collecting signals”. History stays in memory and resets when Render restarts. This is not a guarantee of virality or trend lifetime.</p>
     </section>
 
     <section class="panel" id="breakingNews">
@@ -586,6 +603,88 @@
     } finally {
       button.disabled = false;
       button.textContent = "Find opportunities ✨";
+    }
+  }
+
+  let currentPredictions = [];
+
+  function renderPredictions(items) {
+    const box = $("predictionResults");
+    box.replaceChildren();
+    if (!items.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "No prediction signals available yet. Try again after more trend snapshots have been collected.";
+      box.append(empty);
+      return;
+    }
+    items.forEach((item, index) => {
+      const card = document.createElement("article");
+      card.className = "opportunity-card";
+      const top = document.createElement("div");
+      top.className = "opportunity-card-top";
+      const label = document.createElement("span");
+      label.className = "opportunity-label";
+      label.textContent = item.outlook_label || "Collecting signals";
+      const score = document.createElement("strong");
+      score.className = "opportunity-score";
+      score.textContent = Number.isFinite(Number(item.projected_score))
+        ? "Next " + item.projected_score + "/100"
+        : "—";
+      top.append(label, score);
+      const title = document.createElement("h3");
+      title.textContent = "#" + (index + 1) + " · " + (item.title || "Untitled topic");
+      const summary = document.createElement("p");
+      summary.textContent = item.explanation || "More snapshots are needed to estimate direction.";
+      const details = document.createElement("p");
+      const changes = Array.isArray(item.score_changes) && item.score_changes.length
+        ? item.score_changes.map(value => (value > 0 ? "+" : "") + value).join(" → ")
+        : "not enough data";
+      details.textContent = "Current " + (item.trend_score ?? "—") +
+        " · Recent changes " + changes +
+        " · Observations " + (item.observations ?? 0) +
+        " · Confidence " + (item.confidence || "low");
+      const make = document.createElement("button");
+      make.type = "button";
+      make.className = "mini-btn";
+      make.textContent = "Create script from this topic →";
+      make.addEventListener("click", () => {
+        $("customTopic").value = item.title || "";
+        $("studio").scrollIntoView({behavior:"smooth"});
+        $("customTopic").focus();
+      });
+      card.append(top, title, summary, details, make);
+      box.append(card);
+    });
+  }
+
+  async function loadPredictions() {
+    const button = $("predictionRefreshBtn");
+    button.disabled = true;
+    button.textContent = "Analysing…";
+    $("predictionMessage").textContent = "Comparing the recent snapshots already collected by TrendRadar…";
+    $("predictionMessage").className = "message";
+    $("predictionRegion").textContent = $("region").selectedOptions[0]?.textContent || $("region").value;
+    try {
+      const params = new URLSearchParams({region:$("region").value, limit:"20"});
+      const data = await readJson(await fetch(apiUrl("/api/predictions?" + params.toString()), {
+        headers: {"Accept":"application/json"}
+      }));
+      currentPredictions = Array.isArray(data.predictions) ? data.predictions : [];
+      renderPredictions(currentPredictions);
+      const collecting = currentPredictions.filter(item => item.prediction_status === "collecting").length;
+      $("predictionMessage").textContent = currentPredictions.length
+        ? currentPredictions.length + " topics analysed · " + collecting + " still collecting signals · " + (data.methodology || "")
+        : "No trend data returned for this region.";
+      $("predictionMessage").className = "message";
+    } catch (error) {
+      currentPredictions = [];
+      renderPredictions([]);
+      $("predictionMessage").textContent = error.message + " · Try refreshing trends first.";
+      $("predictionMessage").className = "message error";
+    } finally {
+      button.disabled = false;
+      button.textContent = "Analyse trend direction 📈";
     }
   }
 
@@ -1408,12 +1507,15 @@ Keep the reporting factual. Do not invent facts or unverified details.`;
   $("researchQuery").addEventListener("keydown", event => { if (event.key === "Enter") searchViralVideos(); });
   $("refreshBtn").addEventListener("click", loadTrends);
   $("opportunityRefreshBtn").addEventListener("click", loadOpportunities);
+  $("predictionRefreshBtn").addEventListener("click", loadPredictions);
   $("opportunityLimit").addEventListener("change", () => renderOpportunities(currentOpportunities));
   $("region").addEventListener("change", () => {
     $("opportunityRegion").textContent = $("region").selectedOptions[0]?.textContent || $("region").value;
     // Never leave results from the previous region visible under the newly selected region.
     currentOpportunities = [];
+    currentPredictions = [];
     $("opportunityResults").replaceChildren();
+    $("predictionResults").replaceChildren();
     const empty = document.createElement("div");
     empty.className = "empty";
     empty.textContent = "Region changed. Select Find opportunities to load results for this region.";
