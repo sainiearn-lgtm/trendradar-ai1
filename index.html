@@ -506,16 +506,44 @@
       top.append(tag, stage, rank);
       const heading = document.createElement("h3"); heading.textContent = title;
       const desc = document.createElement("p"); desc.textContent = summary;
+      const whyBox = document.createElement("div");
+      whyBox.style.cssText = "margin:10px 0;padding:10px 12px;border-radius:10px;background:#f2f8fb;border:1px solid #dceaf0;font-size:12px;color:#40536b";
+      const whyTitle = document.createElement("strong"); whyTitle.textContent = "🔎 Why is it trending?";
+      const whyText = document.createElement("p");
+      whyText.style.cssText = "margin:5px 0 0;line-height:1.5";
+      whyText.textContent = trend.why_trending || "Search interest is rising, but Google Trends did not provide a clear related-news explanation for this keyword yet. Treat the reason as unconfirmed.";
+      whyBox.append(whyTitle, whyText);
+      const newsItems = Array.isArray(trend.related_news) ? trend.related_news : [];
+      newsItems.slice(0,3).forEach(news => {
+        if (news.url && /^https?:\/\//i.test(news.url)) {
+          const a = document.createElement("a"); a.className = "text-link";
+          a.href = news.url; a.target = "_blank"; a.rel = "noopener noreferrer";
+          a.textContent = (news.source ? news.source + ": " : "") + (news.title || "Related coverage");
+          a.style.cssText = "display:block;margin-top:6px";
+          whyBox.append(a);
+        }
+      });
       const bottom = document.createElement("div"); bottom.className = "card-bottom";
       const scoreEl = document.createElement("span"); scoreEl.className = "score"; scoreEl.textContent = `Signal score · ${Math.round(score)}/100`;
       const actions = document.createElement("div"); actions.className = "card-actions";
       if (sourceUrl && /^https?:\/\//i.test(sourceUrl)) {
         const link = document.createElement("a"); link.className = "text-link"; link.href = sourceUrl; link.target = "_blank"; link.rel = "noopener noreferrer"; link.textContent = "View source ↗"; actions.append(link);
       }
-      const make = document.createElement("button"); make.className = "mini-btn"; make.textContent = "Make a video";
-      make.addEventListener("click", () => { $("customTopic").value = title; $("studio").scrollIntoView({behavior:"smooth"}); $("customTopic").focus(); });
+      const make = document.createElement("button"); make.className = "mini-btn"; make.textContent = "Create script with this context →";
+      make.addEventListener("click", () => {
+        $("customTopic").value = title;
+        selectedTrendContext = [
+          "Why trending: " + (trend.why_trending || "No clear related-news reason was supplied; do not guess."),
+          "Trend summary: " + summary,
+          "Related coverage: " + (newsItems.map(n => [n.source, n.title, n.snippet, n.url].filter(Boolean).join(" — ")).join("\n") || "No related news items supplied."),
+          "Source: " + (sourceUrl || "Not available")
+        ].join("\n");
+        $("studio").scrollIntoView({behavior:"smooth"}); $("customTopic").focus();
+        $("scriptMessage").textContent = "Trend context attached. AI Script Studio will use the reason and related coverage.";
+        $("scriptMessage").className = "message";
+      });
       actions.append(make); bottom.append(scoreEl, actions);
-      card.append(top, heading, desc, bottom); grid.append(card);
+      card.append(top, heading, desc, whyBox, bottom); grid.append(card);
     });
   }
 
@@ -713,6 +741,8 @@
     } finally { btn.disabled = false; btn.textContent = "↻ Refresh trends"; }
   }
 
+  let selectedTrendContext = "";
+
   async function requestScript(topic, language, button, withVoice = false) {
     if (!topic) {
       $("scriptMessage").textContent = "Please enter a topic first.";
@@ -728,7 +758,7 @@
       const data = await readJson(await fetch(apiUrl("/api/script"), {
         method:"POST",
         headers:{"Content-Type":"application/json","Accept":"application/json"},
-        body:JSON.stringify({topic, language, format:$("format").value})
+        body:JSON.stringify({topic, language, format:$("format").value, trend_context:selectedTrendContext})
       }));
       $("customTopic").value = topic;
       $("language").value = language;
