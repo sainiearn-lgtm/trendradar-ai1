@@ -1659,6 +1659,12 @@ Script:
                 "portrait", "glamour", "glam", "actress", "actor", "celebrity", "headshot",
                 "red carpet", "photoshoot", "fashion", "movie still", "film star"
             ))
+            # This flag must be computed inside search_scene. It was previously
+            # defined only inside make_search_queries(), so every scene search
+            # could fail with NameError before contacting any image provider.
+            movie_poster_scene = any(term in combined for term in (
+                "movie poster", "film poster", "cinema poster", "movie posters", "film posters"
+            ))
             named_subject = is_person_topic() and person_scene
             named_movie_poster = movie_poster_scene and bool(core_topic_name())
 
@@ -1733,10 +1739,9 @@ Script:
                                     continue
                             elif not is_scene_relevant(item, scene, query):
                                 continue
-                            if True:
-                                item["provider"] = "Wikimedia Commons"
-                                seen_urls.add(url)
-                                all_images.append(item)
+                            item["provider"] = "Wikimedia Commons"
+                            seen_urls.add(url)
+                            all_images.append(item)
                             if len(all_images) >= 5:
                                 break
                         logger.info("Wikimedia scene query result: scene=%s query=%r raw=%s accepted=%s", scene.get("scene", "?"), query, len(results), len(all_images) - accepted_before)
