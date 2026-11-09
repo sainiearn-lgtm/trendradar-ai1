@@ -158,11 +158,39 @@ async def fetch_google_trends(client: httpx.AsyncClient, region: str) -> list[di
         desc = clean_text(item.findtext("description"), 450)
         pub = parse_date(item.findtext("pubDate"))
         if title and safe_http_url(link):
+            # Google Trends RSS embeds related news items for many trending searches.
+            # These explain the event/context behind a keyword without another API call.
+            related_news = []
+            for news_item in item.iter():
+                if not str(news_item.tag).endswith("news_item"):
+                    continue
+                fields = {}
+                for child in news_item.iter():
+                    name = str(child.tag).split("}")[-1]
+                    if name in {"news_item_title", "news_item_snippet", "news_item_url", "news_item_source"}:
+                        fields[name] = clean_text(child.text, 500)
+                news_url = fields.get("news_item_url", "")
+                news_title = fields.get("news_item_title", "")
+                if news_title:
+                    related_news.append({
+                        "title": news_title,
+                        "snippet": fields.get("news_item_snippet", ""),
+                        "source": fields.get("news_item_source", ""),
+                        "url": news_url if safe_http_url(news_url) else "",
+                    })
+                if len(related_news) >= 5:
+                    break
+            reason_parts = [
+                f"{entry['title']}: {entry['snippet']}".strip(": ")
+                for entry in related_news if entry.get("title")
+            ]
             rows.append({
                 "title": title, "summary": desc or f"Google Trends search interest is rising for {title}.",
                 "source": "Google Trends", "source_url": link,
                 "published_at": (pub or datetime.now(timezone.utc)).isoformat(),
                 "category": "Search trend", "mentions": 1, "popularity": 8,
+                "related_news": related_news,
+                "why_trending": "Google Trends is showing increased search interest. Related coverage: " + " | ".join(reason_parts) if reason_parts else "",
             })
     return rows
 
@@ -250,6 +278,12 @@ def merge_and_rank(rows: list[dict], region: str) -> list[dict]:
             "region": region, "category": best.get("category") or "General",
             "trend_score": score_item(pub, len(group), len(sources), max(x.get("popularity", 0) for x in group)),
             "published_at": best.get("published_at"), "mentions": len(group),
+            "related_news": list({
+                (news.get("title", ""), news.get("url", "")): news
+                for row in group for news in (row.get("related_news") or [])
+                if news.get("title")
+            }.values())[:5],
+            "why_trending": next((row.get("why_trending") for row in group if row.get("why_trending")), ""),
         })
     output.sort(key=lambda x: (x["trend_score"], x["published_at"] or ""), reverse=True)
     return output[:MAX_TRENDS]
@@ -592,6 +626,7 @@ class ScriptRequest(BaseModel):
     topic: str = Field(min_length=2, max_length=5000)
     language: str = Field(default="English")
     format: str = Field(default="Shorts (60 seconds)")
+    trend_context: str = Field(default="", max_length=6000)
 
     @field_validator("topic")
     @classmethod
@@ -704,9 +739,18 @@ async def generate_script(payload: ScriptRequest):
         structure = "Create a punchy 45–60 second vertical video script. Start with a powerful first-3-second hook, use fast-paced storytelling and interesting accurate context, then end with a memorable CTA."
     else:
         structure = "Create a detailed 5–10 minute YouTube script with a compelling intro, clear sections, detailed explanation, examples, transitions, conclusion and CTA."
+    context_block = (
+        "\nTREND CONTEXT (use this to explain why this topic is trending):\n"
+        + payload.trend_context.strip()
+        + "\nUse this context as the story angle. Distinguish confirmed details from speculation. "
+          "Do not invent missing facts; if context is weak or incomplete, say so naturally and avoid presenting guesses as facts.\n"
+        if payload.trend_context.strip() else
+        "\nNo verified trend context was supplied. Do not pretend to know why this topic is trending; build a general explainer and flag facts needing verification.\n"
+    )
     prompt = f"""You are an expert YouTube and Instagram video scriptwriter. Write naturally and engagingly in {payload.language}.
 Topic: {payload.topic}
 Format: {payload.format}
+{context_block}
 Requirements: {structure}
 Language rule: write ALL spoken narration in natural Hindi using Devanagari script. Do not write Roman Hindi or English inside spoken narration.
 Return polished creator-ready content with these exact sections:
