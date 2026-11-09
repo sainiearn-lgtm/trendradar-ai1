@@ -531,7 +531,21 @@
   }
 
 document.querySelectorAll('input[name="imageMode"]').forEach(input => {
-  input.addEventListener("change", toggleImageUpload);
+  input.addEventListener("change", () => {
+    toggleImageUpload();
+
+    // Selecting "Upload Own Images" should open the file picker directly.
+    if (input.checked && input.value === "upload") {
+      const firstSceneUpload = document.querySelector('.own-image-upload input[type="file"]');
+      if (firstSceneUpload) {
+        firstSceneUpload.click();
+      } else {
+        $("visualMessage").textContent = "Pehle “Find matching images” par click karke scenes load karein, phir Upload Own Images select karein.";
+        $("visualMessage").className = "message";
+        $("visualTools").scrollIntoView({behavior:"smooth", block:"start"});
+      }
+    }
+  });
 });
 async function generateAiImage(prompt) {
   // Current backend returns the completed image directly (no polling/request_id).
