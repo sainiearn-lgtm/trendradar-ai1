@@ -451,27 +451,18 @@ document.querySelectorAll('input[name="imageMode"]').forEach(input => {
   input.addEventListener("change", toggleImageUpload);
 });
 async function generateAiImage(prompt) {
+  // Current backend returns the completed image directly (no polling/request_id).
   const data = await readJson(await fetch(apiUrl("/api/ai-image"), {
     method: "POST",
-    headers: {"Content-Type": "application/json"},
+    headers: {"Content-Type": "application/json", "Accept": "application/json"},
     body: JSON.stringify({prompt})
   }));
 
-  const requestId = data.request_id;
-
-  for (let i = 0; i < 45; i++) {
-    await new Promise(resolve => setTimeout(resolve, 8000));
-
-    const result = await readJson(await fetch(
-      apiUrl("/api/ai-image/" + encodeURIComponent(requestId))
-    ));
-
-    if (result.status === "done" && result.image_url) {
-      return result.image_url;
-    }
+  if (data.status === "done" && data.image_url) {
+    return data.image_url;
   }
 
-  throw new Error("AI image abhi ready nahi hui. Baad mein retry karein.");
+  throw new Error(data.detail || "AI image generate nahi hui. Baad mein retry karein.");
 }
   async function findScriptVisuals() {
     const script = $("scriptOutput").value.trim();
@@ -525,7 +516,7 @@ aiButton.addEventListener("click", async () => {
     const item = {
       image_url: imageUrl,
       title: "AI Generated Image",
-      provider: "AI Horde"
+      provider: "Pollinations AI"
     };
 
     const choice = document.createElement("button");
