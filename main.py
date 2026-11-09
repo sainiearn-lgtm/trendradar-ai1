@@ -255,6 +255,63 @@ def merge_and_rank(rows: list[dict], region: str) -> list[dict]:
     return output[:MAX_TRENDS]
 
 
+# Lightweight, process-local trend history. No database, disk writes, background
+# polling, or additional feed requests; history resets when the service restarts.
+TREND_HISTORY_MAX_SNAPSHOTS = 96  # up to 24 hours when requests arrive every 15 min
+_trend_history: dict[str, list[dict[str, Any]]] = {}
+
+
+def record_and_classify_trends(rows: list[dict], region: str) -> list[dict]:
+    """Compare a fresh feed result with the previous in-memory snapshot."""
+    now = datetime.now(timezone.utc)
+    history = _trend_history.setdefault(region, [])
+    previous = history[-1] if history else {}
+    previous_items = previous.get("items", {})
+    first_seen = {}
+    for snapshot in history:
+        for key in snapshot.get("items", {}):
+            first_seen.setdefault(key, snapshot.get("timestamp", now.isoformat()))
+
+    classified = []
+    snapshot_items = {}
+    enough_history = len(history) >= 1
+    for row in rows:
+        key = re.sub(r"[^a-z0-9]+", " ", row.get("title", "").casefold()).strip()
+        old = previous_items.get(key)
+        score = int(row.get("trend_score", 0) or 0)
+        delta = score - int(old.get("score", score)) if old else 0
+        points = len(history) + 1
+        if not enough_history:
+            stage = "collecting"
+        elif not old:
+            stage = "new"
+        elif delta <= -5:
+            stage = "declining"
+        elif score >= 80:
+            stage = "viral"
+        elif delta >= 5 and score < 70:
+            stage = "emerging"
+        elif delta >= 3:
+            stage = "rising"
+        else:
+            stage = "stable"
+
+        item = dict(row)
+        item.update({
+            "trend_stage": stage,
+            "growth_delta": delta if old else None,
+            "history_points": points,
+        })
+        classified.append(item)
+        snapshot_items[key] = {"score": score, "title": row.get("title", "")}
+
+    # Keep only compact scores/titles; no article bodies or URLs are duplicated.
+    history.append({"timestamp": now.isoformat(), "items": snapshot_items})
+    if len(history) > TREND_HISTORY_MAX_SNAPSHOTS:
+        del history[:-TREND_HISTORY_MAX_SNAPSHOTS]
+    return classified
+
+
 @app.get("/")
 async def root():
     return {"name": "TrendRadar AI API", "status": "online", "version": APP_VERSION, "docs": "/docs"}
@@ -299,6 +356,8 @@ async def trends(region: str = "IN", q: str | None = None):
                 source_status[name] = "ok" if result else ("no_data" if name != "YouTube" or YOUTUBE_API_KEY else "not_configured")
                 combined.extend(result)
         rows = merge_and_rank(combined, region)
+        if rows:
+            rows = record_and_classify_trends(rows, region)
         if not rows:
             raise HTTPException(status_code=503, detail={"message": "Trend feeds are temporarily unavailable or returned no results. Please retry shortly.", "sources": source_status})
         put_cache(cache_key, rows)
