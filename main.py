@@ -1559,6 +1559,37 @@ Script:
         words = re.findall(r"[a-z]+", core_topic_name().casefold())
         return len(words) >= 2 and not any(x in core_topic_name().casefold() for x in ("iphone", "samsung", "pixel", "car", "phone"))
 
+    def core_subject_terms() -> list[str]:
+        """Return topic-name tokens, excluding descriptive and visual-only words."""
+        stop = {
+            "personal", "life", "news", "latest", "update", "controversy",
+            "controversies", "issue", "issues", "story", "explained", "why",
+            "what", "how", "again", "video", "topic", "trending", "google",
+            "trends", "trend", "graph", "chart", "headline", "newspaper",
+            "clipping", "blurred", "fast", "zoom", "close", "shot", "scene",
+            "image", "photo", "picture", "ki", "ka", "ke", "par", "mein",
+            "me", "hai", "phir", "kyun", "kyu", "macha", "bawal",
+        }
+        return [
+            word for word in re.findall(r"[a-z0-9]+", core_topic_name().casefold())
+            if len(word) >= 2 and word not in stop
+        ]
+
+    def scene_subject_terms(scene: dict) -> list[str]:
+        """Fallback to the AI's named subject when the topic itself is in Hindi."""
+        terms = core_subject_terms()
+        if len(terms) >= 2:
+            return terms
+        stop = {
+            "google", "trends", "trend", "graph", "chart", "headline", "news",
+            "newspaper", "clipping", "blurred", "fast", "zoom", "close", "shot",
+            "scene", "image", "photo", "picture", "visual", "video", "search",
+            "india", "indian", "the", "and", "for", "with", "about", "from",
+        }
+        query = clean_text(scene.get("search_query", ""), 160).casefold()
+        return [word for word in re.findall(r"[a-z0-9]+", query)
+                if len(word) >= 2 and word not in stop]
+
     def make_search_queries(scene: dict) -> list[str]:
         """Search the actual scene subject, not the full informational topic on every request."""
         core = core_topic_name()
@@ -1578,20 +1609,21 @@ Script:
         movie_poster_scene = any(term in combined for term in (
             "movie poster", "film poster", "cinema poster", "movie posters", "film posters"
         ))
+        subject_terms = scene_subject_terms(scene)
+        subject_query = " ".join(subject_terms)
         queries = []
         if movie_poster_scene and core:
             queries.extend([f"{core} film poster", f"{core} movie poster"])
-        if bigg_boss_brand_scene:
+        elif bigg_boss_brand_scene:
             queries.extend(["Bigg Boss 20 logo", "Bigg Boss reality show India"])
-        if person_scene and is_person_topic():
-            queries.extend([core, concise_terms(core + " portrait", 4)])
+        elif len(subject_terms) >= 2:
+            # Keep the named subject as the search anchor; don't let generic
+            # scene words such as "Google Trends" dominate the provider query.
+            queries.extend([subject_query, f"{subject_query} news", f"{subject_query} headline"])
         else:
             scene_terms = concise_terms(ai_query, 4) or concise_terms(visual, 4)
             if scene_terms:
                 queries.append(scene_terms)
-            # Keep the subject as a fallback, not as a prefix that makes every search too strict.
-            if is_person_topic() and any(x in combined for x in ("movie", "film", "studio", "commercial", "shoot")):
-                queries.append(core)
         if not queries:
             queries.append(core)
         unique = []
@@ -1631,6 +1663,15 @@ Script:
             return 0
         title = re.sub(r"[^a-z0-9]+", " ", str(item.get("title", "")).casefold())
         desc = re.sub(r"[^a-z0-9]+", " ", str(item.get("description", "")).casefold())
+        # Named-person scenes must contain the actual subject in the asset metadata.
+        # This blocks unrelated files whose only matching words are "Google Trends".
+        subject_terms = scene_subject_terms(scene)
+        metadata = " " + title + " " + desc + " "
+        if len(subject_terms) >= 2 and not all(
+            re.search(r"(?<![a-z0-9])" + re.escape(word) + r"(?![a-z0-9])", metadata)
+            for word in subject_terms
+        ):
+            return 0
         title_hits = sum(bool(re.search(r"(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])", title)) for w in terms)
         desc_hits = sum(bool(re.search(r"(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])", desc)) for w in terms)
         total_hits = len(set(
