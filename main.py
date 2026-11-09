@@ -1528,6 +1528,7 @@ Script:
         """Remove informational suffixes (net worth, age, biography) from the subject."""
         value = clean_text(payload.topic, 120)
         suffixes = [
+            r"\s+(?:movie\s+fact\s+check|film\s+fact\s+check|movie\s+review|movie\s+facts|film\s+facts|movie|film|poster|fact\s+check)$",
             r"\s+(?:net\s+worth|income|salary|earnings|wealth)$",
             r"\s+(?:biography|bio|age|height|family|career|lifestyle|news|latest|update)$",
             r"\s+(?:net\s+worth|income|salary|earnings|wealth)\s+(?:in\s+202[4-9])$",
@@ -1574,7 +1575,12 @@ Script:
             "portrait", "glamour", "glam", "actress", "actor", "celebrity", "headshot",
             "red carpet", "photoshoot", "fashion", "movie still", "film star"
         ))
+        movie_poster_scene = any(term in combined for term in (
+            "movie poster", "film poster", "cinema poster", "movie posters", "film posters"
+        ))
         queries = []
+        if movie_poster_scene and core:
+            queries.extend([f"{core} film poster", f"{core} movie poster"])
         if bigg_boss_brand_scene:
             queries.extend(["Bigg Boss 20 logo", "Bigg Boss reality show India"])
         if person_scene and is_person_topic():
@@ -1654,11 +1660,12 @@ Script:
                 "red carpet", "photoshoot", "fashion", "movie still", "film star"
             ))
             named_subject = is_person_topic() and person_scene
+            named_movie_poster = movie_poster_scene and bool(core_topic_name())
 
             # India-localized queries are tried before global fallbacks for
             # generic scenes, independent of the server's deployment region.
             # Never use stock search as proof of a named celebrity's identity.
-            if PIXABAY_API_KEY and not named_subject:
+            if PIXABAY_API_KEY and not named_subject and not named_movie_poster:
                 for query in queries[:3]:
                     results = await find_pixabay_images(client, query)
                     for item in results:
@@ -1689,7 +1696,7 @@ Script:
                         break
 
             # Openverse supplies another pool of openly licensed generic visuals.
-            if len(all_images) < 5 and not named_subject:
+            if len(all_images) < 5 and not named_subject and not named_movie_poster:
                 for query in queries[:3]:
                     results = await find_openverse_images(client, query)
                     accepted_before = len(all_images)
@@ -1717,7 +1724,16 @@ Script:
                             url = item.get("image_url")
                             if not url or url in seen_urls:
                                 continue
-                            if is_scene_relevant(item, scene, query):
+                            if named_movie_poster:
+                                # For a named film poster, require the actual film title in metadata.
+                                title_text = re.sub(r"[^a-z0-9]+", " ", str(item.get("title", "")).casefold())
+                                desc_text = re.sub(r"[^a-z0-9]+", " ", str(item.get("description", "")).casefold())
+                                film_name = re.sub(r"[^a-z0-9]+", " ", core_topic_name().casefold()).strip()
+                                if not film_name or film_name not in (title_text + " " + desc_text):
+                                    continue
+                            elif not is_scene_relevant(item, scene, query):
+                                continue
+                            if True:
                                 item["provider"] = "Wikimedia Commons"
                                 seen_urls.add(url)
                                 all_images.append(item)
