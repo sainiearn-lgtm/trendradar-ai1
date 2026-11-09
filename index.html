@@ -722,23 +722,39 @@ aiButton.addEventListener("click", async () => {
 
   async function loadCanvasImage(url) {
     const isLocalObject = url.startsWith("blob:") || url.startsWith("data:");
-    const finalUrl = isLocalObject
-      ? url
-      : url.startsWith("/")
-        ? apiUrl(url)
-        : apiUrl("/api/image-proxy?url=" + encodeURIComponent(url));
 
-    // Fetch image bytes with CORS, then decode them locally. Drawing an
-    // ImageBitmap decoded from a fetched Blob keeps the canvas origin-clean,
-    // including when the frontend and Render API use different domains.
-    const response = await fetch(finalUrl, {
-      method: "GET",
-      mode: "cors",
-      credentials: "omit",
-      cache: "no-store"
-    });
+    // Phone-uploaded images are already local Blob/Data URLs created by this
+    // page. Decode them directly; fetching a blob URL from a saved file://
+    // page can fail in mobile browsers because its origin is opaque.
+    if (isLocalObject) {
+      const localImage = new Image();
+      await new Promise((resolve, reject) => {
+        localImage.onload = resolve;
+        localImage.onerror = () => reject(new Error("Uploaded image load nahi hui. Dobara upload karke retry karein."));
+        localImage.src = url;
+      });
+      return localImage;
+    }
+
+    const finalUrl = url.startsWith("/")
+      ? apiUrl(url)
+      : apiUrl("/api/image-proxy?url=" + encodeURIComponent(url));
+
+    // Remote images are fetched through the API proxy and decoded from bytes,
+    // so drawing them never taints the canvas.
+    let response;
+    try {
+      response = await fetch(finalUrl, {
+        method: "GET",
+        mode: "cors",
+        credentials: "omit",
+        cache: "no-store"
+      });
+    } catch (error) {
+      throw new Error("Internet image server se connect nahi ho paya. Internet connection check karein ya dusri image select karein.");
+    }
     if (!response.ok) {
-      throw new Error("Image server se load nahi hui (HTTP " + response.status + "). Dusri image select karke retry karein.");
+      throw new Error("Internet image load nahi hui (HTTP " + response.status + "). Dusri image select karke retry karein.");
     }
     const blob = await response.blob();
     if (!blob.type.startsWith("image/")) {
@@ -746,13 +762,12 @@ aiButton.addEventListener("click", async () => {
     }
     if ("createImageBitmap" in window) return await createImageBitmap(blob);
 
-    // Compatibility fallback for browsers without createImageBitmap.
     const objectUrl = URL.createObjectURL(blob);
     try {
       const img = new Image();
       await new Promise((resolve, reject) => {
         img.onload = resolve;
-        img.onerror = () => reject(new Error("Selected image decode nahi hui."));
+        img.onerror = () => reject(new Error("Internet image decode nahi hui."));
         img.src = objectUrl;
       });
       return img;
