@@ -515,38 +515,28 @@
   let selectedVisuals = {};
   let storyboardScenes = [];
   function toggleImageUpload() {
-  const mode = document.querySelector('input[name="imageMode"]:checked')?.value;
-  // Keep upload available in every mode, including Free AI Images.
-  $("ownImageUpload").style.display = "block";
-  document.querySelectorAll(".ai-image-button").forEach(button => {
-    button.hidden = mode !== "ai";
-  });
+    const mode = document.querySelector('input[name="imageMode"]:checked')?.value || "internet";
+
+    // Show only the controls for the selected source, separately inside each scene.
+    document.querySelectorAll(".ai-image-button").forEach(button => {
+      button.hidden = mode !== "ai";
+    });
     document.querySelectorAll(".internet-image-choice").forEach(button => {
-  button.hidden = mode !== "internet";
-});
-    // Upload is an additional source, not an exclusive mode.
+      button.hidden = mode !== "internet";
+    });
     document.querySelectorAll(".own-image-upload").forEach(label => {
-  label.hidden = false;
-});
+      label.hidden = mode !== "upload";
+    });
+
+    if (mode === "upload" && !document.querySelector(".own-image-upload")) {
+      $("visualMessage").textContent = "Scene-wise upload buttons dikhane ke liye pehle “Find matching images ✨” par click karein.";
+      $("visualMessage").className = "message";
+    }
   }
 
-document.querySelectorAll('input[name="imageMode"]').forEach(input => {
-  input.addEventListener("change", () => {
-    toggleImageUpload();
-
-    // Selecting "Upload Own Images" should open the file picker directly.
-    if (input.checked && input.value === "upload") {
-      const firstSceneUpload = document.querySelector('.own-image-upload input[type="file"]');
-      if (firstSceneUpload) {
-        firstSceneUpload.click();
-      } else {
-        $("visualMessage").textContent = "Pehle “Find matching images” par click karke scenes load karein, phir Upload Own Images select karein.";
-        $("visualMessage").className = "message";
-        $("visualTools").scrollIntoView({behavior:"smooth", block:"start"});
-      }
-    }
+  document.querySelectorAll('input[name="imageMode"]').forEach(input => {
+    input.addEventListener("change", toggleImageUpload);
   });
-});
 async function generateAiImage(prompt) {
   // Current backend returns the completed image directly (no polling/request_id).
   const data = await readJson(await fetch(apiUrl("/api/ai-image"), {
