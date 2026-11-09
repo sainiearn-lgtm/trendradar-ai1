@@ -595,35 +595,72 @@ aiButton.addEventListener("click", async () => {
           });
           images.append(choice);
         });
-        const uploadLabel = document.createElement("label");
-uploadLabel.textContent = "📁 Choose your own image for this scene";
+        const uploadLabel = document.createElement("div");
         uploadLabel.className = "own-image-upload";
+        uploadLabel.style.cssText = "display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px";
+        const uploadButton = document.createElement("button");
+        uploadButton.type = "button";
+        uploadButton.className = "btn secondary";
+        uploadButton.textContent = "📁 Upload your image(s)";
+        const uploadInput = document.createElement("input");
+        uploadInput.type = "file";
+        uploadInput.accept = "image/*";
+        uploadInput.multiple = true;
+        uploadInput.hidden = true;
+        uploadButton.addEventListener("click", () => uploadInput.click());
 
-const uploadInput = document.createElement("input");
-uploadInput.type = "file";
-uploadInput.accept = "image/*";
-uploadInput.multiple = true;
+        uploadInput.addEventListener("change", () => {
+          const files = Array.from(uploadInput.files || []).filter(file => file.type.startsWith("image/"));
+          if (!files.length) {
+            uploadInput.value = "";
+            return;
+          }
 
-uploadInput.addEventListener("change", () => {
-  const files = Array.from(uploadInput.files || []);
-  if (!files.length) return;
+          const current = Array.isArray(selectedVisuals[scene.scene])
+            ? selectedVisuals[scene.scene]
+            : [];
+          const uploaded = files.map(file => ({
+            image_url: URL.createObjectURL(file),
+            title: file.name,
+            provider: "Your Upload"
+          }));
 
-  const current = Array.isArray(selectedVisuals[scene.scene])
-    ? selectedVisuals[scene.scene]
-    : [];
-  const uploaded = files.map(file => ({
-    image_url: URL.createObjectURL(file),
-    title: file.name,
-    provider: "Your Upload"
-  }));
+          // Show every uploaded photo as a normal selectable thumbnail and
+          // add it to the selection without removing Internet/AI choices.
+          uploaded.forEach(item => {
+            const choice = document.createElement("button");
+            choice.type = "button";
+            choice.className = "visual-choice selected";
+            const img = document.createElement("img");
+            img.src = item.image_url;
+            img.alt = item.title;
+            const title = document.createElement("span");
+            title.textContent = "📁 " + item.title;
+            choice.append(img, title);
+            choice.addEventListener("click", () => {
+              const selected = Array.isArray(selectedVisuals[scene.scene])
+                ? selectedVisuals[scene.scene]
+                : [];
+              const exists = selected.some(entry => entry.image_url === item.image_url);
+              if (exists) {
+                selectedVisuals[scene.scene] = selected.filter(entry => entry.image_url !== item.image_url);
+                choice.classList.remove("selected");
+              } else {
+                selectedVisuals[scene.scene] = [...selected, item];
+                choice.classList.add("selected");
+              }
+              if (!selectedVisuals[scene.scene].length) delete selectedVisuals[scene.scene];
+              updateVisualSelectionStatus();
+            });
+            images.append(choice);
+          });
 
-  // Add uploads without replacing already selected AI / Internet images.
-  selectedVisuals[scene.scene] = [...current, ...uploaded];
-  updateVisualSelectionStatus();
-  uploadInput.value = "";
-});
+          selectedVisuals[scene.scene] = [...current, ...uploaded];
+          updateVisualSelectionStatus();
+          uploadInput.value = "";
+        });
 
-uploadLabel.append(uploadInput);
+        uploadLabel.append(uploadButton, uploadInput);
         const credit = document.createElement("div");
         credit.className = "visual-credit";
         credit.textContent = options.length
