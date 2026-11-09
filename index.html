@@ -628,7 +628,7 @@
       label.textContent = item.outlook_label || "Collecting signals";
       const score = document.createElement("strong");
       score.className = "opportunity-score";
-      score.textContent = Number.isFinite(Number(item.projected_score))
+      score.textContent = item.projected_score !== null && item.projected_score !== undefined && Number.isFinite(Number(item.projected_score))
         ? "Next " + item.projected_score + "/100"
         : "—";
       top.append(label, score);
