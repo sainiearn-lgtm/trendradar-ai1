@@ -1683,16 +1683,9 @@ Script:
                         if not url or url in seen_urls:
                             continue
                         metadata = (item.get("title", "") + " " + item.get("description", "")).casefold()
-                        terms = [
-                            w for w in re.findall(r"[a-z0-9]+", query.casefold())
-                            if len(w) >= 4 and w not in {"india", "indian"}
-                        ]
-                        # Reject empty or unrelated metadata instead of allowing
-                        # untagged results to slip through the relevance filter.
-                        if terms and not any(
-                            re.search(r"(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])", metadata)
-                            for w in terms
-                        ):
+                        # Require a meaningful title/description match; a single
+                        # generic tag is not enough to pass a scene image.
+                        if scene_relevance_score(item, scene, query) <= 0:
                             continue
                         width, height = item.get("width"), item.get("height")
                         if width and height and (int(width) < 500 or int(height) < 600):
