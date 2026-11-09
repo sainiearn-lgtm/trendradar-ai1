@@ -148,6 +148,48 @@
       .topbar { background:rgba(255,255,255,.96); }
     }
 
+  
+    /* Sidebar navigation: navigation-only, existing sections and workflows stay intact. */
+    .sidebar-toggle {
+      display:none; border:1px solid #dce5ef; background:#fff; color:#24364d;
+      border-radius:10px; width:40px; height:40px; font-size:21px; line-height:1;
+    }
+    .sidebar {
+      position:fixed; z-index:8; left:16px; top:88px; bottom:18px; width:214px;
+      padding:14px 10px; overflow-y:auto; background:rgba(255,255,255,.96);
+      border:1px solid #e1e8f0; border-radius:16px; box-shadow:0 8px 26px rgba(30,55,85,.08);
+    }
+    .sidebar-label { padding:7px 11px 12px; color:#8492a5; font-size:10px; font-weight:800; letter-spacing:1.2px; }
+    .side-link {
+      display:flex; align-items:center; gap:10px; width:100%; margin:3px 0; padding:11px 12px;
+      border:0; border-radius:10px; background:transparent; color:#40536b; text-align:left;
+      font-size:13px; font-weight:700;
+    }
+    .side-link:hover, .side-link.active { color:#087f80; background:#eaf8f6; }
+    .side-link span { width:20px; text-align:center; font-size:16px; }
+    .sidebar-backdrop { display:none; }
+    @media(min-width:701px) {
+      main { margin-left:246px; margin-right:auto; }
+      .topbar { padding-left:22px; }
+    }
+    @media(max-width:700px) {
+      .sidebar-toggle { display:grid; place-items:center; flex:0 0 40px; }
+      .topbar { justify-content:flex-start; }
+      .brand { flex:1; }
+      .sidebar {
+        top:70px; left:0; bottom:0; width:min(280px,82vw); z-index:12;
+        border-radius:0 16px 16px 0; transform:translateX(-105%); transition:transform .22s ease;
+      }
+      body.sidebar-open .sidebar { transform:translateX(0); }
+      .sidebar-backdrop {
+        display:block; position:fixed; inset:62px 0 0; z-index:11; background:rgba(20,35,55,.28);
+        opacity:0; pointer-events:none; transition:opacity .22s ease;
+      }
+      body.sidebar-open .sidebar-backdrop { opacity:1; pointer-events:auto; }
+      main { margin:0 auto; }
+    }
+    html { scroll-behavior:smooth; scroll-padding-top:90px; }
+
   </style>
 </head>
 <body>
@@ -159,11 +201,22 @@
       <span id="feedStatus">Checking live feeds…</span>
     </div>
   </header>
-  <main>
+  <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+    <div class="sidebar-label">SAINIRADAR MENU</div>
+    <button class="side-link active" type="button" data-target="pageTop"><span>⌂</span>Dashboard</button>
+    <button class="side-link" type="button" data-target="trendKeywords"><span>🔥</span>Trend Keywords</button>
+    <button class="side-link" type="button" data-target="breakingNews"><span>📰</span>Latest News</button>
+    <button class="side-link" type="button" data-target="videoResearch"><span>▶</span>Viral Video Research</button>
+    <button class="side-link" type="button" data-target="studio"><span>✦</span>AI Script Studio</button>
+    <button class="side-link" type="button" data-target="visualTools"><span>🎬</span>Video Maker</button>
+  </aside>
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+  <main id="pageTop">
     <div class="eyebrow">Signal over noise</div>
     <h1>Find the next big<br />content idea.</h1>
     <p class="lead">Discover what people are searching and talking about, then turn a promising topic into a video script with AI.</p>
-    <section class="controls" aria-label="Trend filters">
+    <section class="controls" id="trendKeywords" aria-label="Trend filters">
       <select id="region" class="field" aria-label="Select region">
         <option value="IN">🇮🇳 India</option><option value="US">🇺🇸 United States</option>
         <option value="GB">🇬🇧 United Kingdom</option><option value="CA">🇨🇦 Canada</option>
@@ -1210,6 +1263,29 @@ Keep the reporting factual. Do not invent facts or unverified details.`;
       $("scriptMessage").textContent = "Script copied.";
     }
     $("scriptMessage").className = "message";
+  });
+
+  // Sidebar navigation only scrolls to existing sections; it does not hide or re-create content.
+  const sidebar = $("sidebar");
+  const sidebarToggle = $("sidebarToggle");
+  const closeSidebar = () => {
+    document.body.classList.remove("sidebar-open");
+    sidebarToggle.setAttribute("aria-expanded", "false");
+    sidebarToggle.setAttribute("aria-label", "Open navigation");
+  };
+  sidebarToggle.addEventListener("click", () => {
+    const isOpen = document.body.classList.toggle("sidebar-open");
+    sidebarToggle.setAttribute("aria-expanded", String(isOpen));
+    sidebarToggle.setAttribute("aria-label", isOpen ? "Close navigation" : "Open navigation");
+  });
+  $("sidebarBackdrop").addEventListener("click", closeSidebar);
+  sidebar.querySelectorAll("[data-target]").forEach(link => {
+    link.addEventListener("click", () => {
+      const target = $(link.dataset.target);
+      if (target) target.scrollIntoView({behavior:"smooth", block:"start"});
+      sidebar.querySelectorAll(".side-link").forEach(item => item.classList.toggle("active", item === link));
+      closeSidebar();
+    });
   });
 
   loadTrends();
