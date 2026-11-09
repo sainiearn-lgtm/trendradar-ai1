@@ -21,6 +21,12 @@ jobs:
       - name: Check backend Python syntax
         run: python -m py_compile main.py
 
+      - name: Install lightweight API test dependencies
+        run: python -m pip install "fastapi==0.115.12" "httpx==0.28.1" "python-dotenv==1.1.0" "pydantic>=2,<3"
+
+      - name: Run isolated Opportunity Finder API tests
+        run: python -m unittest discover -s tests -v
+
       - name: Check frontend JavaScript syntax
         shell: bash
         run: |
