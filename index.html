@@ -742,6 +742,7 @@
   }
 
   let selectedTrendContext = "";
+  $("customTopic").addEventListener("input", () => { selectedTrendContext = ""; });
 
   async function requestScript(topic, language, button, withVoice = false) {
     if (!topic) {
