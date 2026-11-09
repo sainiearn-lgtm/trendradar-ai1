@@ -1566,7 +1566,7 @@ Script:
         combined = (ai_query + " " + visual + " " + clean_text(scene.get("narration", ""), 240)).casefold()
         # Preserve named show identity: generic AI visual terms must not override it.
         script_context = (clean_text(payload.topic, 160) + " " + clean_text(payload.script, 5000)).casefold()
-        has_bigg_boss = bool(re.search(r"bigg\\s*boss|बिग\\s*बॉस", script_context))
+        has_bigg_boss = bool(re.search(r"bigg\s*boss|बिग\s*बॉस", script_context))
         bigg_boss_brand_scene = has_bigg_boss and any(term in combined for term in (
             "logo", "headline", "studio", "intro", "show", "house", "contestant", "television"
         ))
