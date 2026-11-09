@@ -1111,6 +1111,13 @@ aiButton.addEventListener("click", async () => {
         localImage.onerror = () => reject(new Error("Uploaded image load nahi hui. Dobara upload karke retry karein."));
         localImage.src = url;
       });
+      // onload means bytes arrived; decode() ensures the pixels are ready before canvas recording.
+      if (typeof localImage.decode === "function") {
+        try { await localImage.decode(); } catch (error) {
+          if (!localImage.naturalWidth || !localImage.naturalHeight) throw new Error("Uploaded image decode nahi hui. Dobara upload karke retry karein.");
+        }
+      }
+      if (!localImage.naturalWidth || !localImage.naturalHeight) throw new Error("Uploaded image valid nahi hai. Dobara upload karke retry karein.");
       return localImage;
     }
 
@@ -1254,23 +1261,41 @@ aiButton.addEventListener("click", async () => {
       const duration = audioBuffer.duration;
       const sceneDuration = duration / loaded.length;
       const start = performance.now();
-      let rafId;
-      const paint = now => {
-        const elapsed = Math.min((now - start) / 1000, duration);
+      let renderTimer = null;
+      let lastFrameIndex = -1;
+      const paint = () => {
+        const elapsed = Math.min((performance.now() - start) / 1000, duration);
         const index = Math.min(loaded.length - 1, Math.floor(elapsed / sceneDuration));
         const item = loaded[index];
-        drawVideoFrame(ctx, item.bitmap, item.scene.narration || item.scene.visual, index + 1, loaded.length, canvas.width, canvas.height);
-        // Explicitly request a frame where supported; regular 30fps capture remains the fallback.
-        if (typeof videoTrack.requestFrame === "function") videoTrack.requestFrame();
+        // Redraw when a scene changes, and keep refreshing frames between transitions.
+        // A timer is used instead of requestAnimationFrame because Android may pause RAF
+        // during media recording, leaving the first canvas frame in the finished video.
+        if (index !== lastFrameIndex || elapsed < duration) {
+          drawVideoFrame(ctx, item.bitmap, item.scene.narration || item.scene.visual, index + 1, loaded.length, canvas.width, canvas.height);
+          lastFrameIndex = index;
+          if (typeof videoTrack.requestFrame === "function") videoTrack.requestFrame();
+        }
         const percent = Math.min(99, Math.floor(elapsed / duration * 100));
         message.textContent = `Video render ho raha hai… ${percent}%`;
-        if (elapsed < duration && recorder.state === "recording") rafId = requestAnimationFrame(paint);
+        if (elapsed >= duration && renderTimer !== null) {
+          clearInterval(renderTimer);
+          renderTimer = null;
+        }
       };
+      // Start recording only after every image has loaded and decoded and the first
+      // frame is already painted. Start audio immediately after MediaRecorder starts.
       recorder.start(250);
-      rafId = requestAnimationFrame(paint);
+      paint();
+      renderTimer = setInterval(paint, 33);
       audioSource.start();
-      await new Promise(resolve => setTimeout(resolve, Math.ceil(duration * 1000) + 350));
-      cancelAnimationFrame(rafId);
+      await new Promise(resolve => setTimeout(resolve, Math.ceil(duration * 1000) + 700));
+      if (renderTimer !== null) clearInterval(renderTimer);
+      renderTimer = null;
+      // Ensure the final scene is painted before stopping the recorder.
+      drawVideoFrame(ctx, loaded[loaded.length - 1].bitmap,
+        loaded[loaded.length - 1].scene.narration || loaded[loaded.length - 1].scene.visual,
+        loaded.length, loaded.length, canvas.width, canvas.height);
+      if (typeof videoTrack.requestFrame === "function") videoTrack.requestFrame();
       if (recorder.state !== "inactive") recorder.stop();
       await finished;
       audioSource.disconnect();
