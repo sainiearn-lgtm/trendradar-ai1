@@ -305,6 +305,14 @@ def record_and_classify_trends(rows: list[dict], region: str) -> list[dict]:
         classified.append(item)
         snapshot_items[key] = {"score": score, "title": row.get("title", "")}
 
+    # Surface early momentum before already-established high-score topics.
+    stage_order = {"emerging": 0, "rising": 1, "viral": 2, "new": 3,
+                   "collecting": 4, "stable": 5, "declining": 6}
+    classified.sort(key=lambda item: (
+        stage_order.get(item.get("trend_stage"), 5),
+        -int(item.get("trend_score", 0)),
+    ))
+
     # Keep only compact scores/titles; no article bodies or URLs are duplicated.
     history.append({"timestamp": now.isoformat(), "items": snapshot_items})
     if len(history) > TREND_HISTORY_MAX_SNAPSHOTS:
