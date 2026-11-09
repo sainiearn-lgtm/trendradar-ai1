@@ -1367,8 +1367,9 @@ async def generate_visuals(payload: VisualRequest):
 Return ONLY valid JSON: an array of 5 to 10 objects with keys:
 "narration": a short exact excerpt (max 24 Hindi words) from the script,
 "visual": a concise description of what should appear on screen,
-"search_query": 2-5 concrete English keywords suitable for finding a real photograph on Wikimedia Commons.
-Do not invent events or imply a real person did something not stated. Prefer specific objects, places, people, or concepts over abstract words.
+"search_query": 2-5 concrete English keywords suitable for finding the exact real subject shown in the scene.
+IMPORTANT: If the narration or visual mentions a named TV show, brand, person, event, or place, include that exact proper name in search_query. Never replace a named show such as Bigg Boss with generic terms like television studio, microphone, or logo. For a scene mentioning "Bigg Boss logo", use "Bigg Boss logo" or "Bigg Boss 20 logo".
+Do not invent events or imply a real person did something not stated. Prefer exact named entities and specific visible subjects over generic background objects.
 Topic: {payload.topic}
 Script:
 {payload.script}
@@ -1562,12 +1563,20 @@ Script:
         core = core_topic_name()
         ai_query = clean_text(scene.get("search_query", ""), 160)
         visual = clean_text(scene.get("visual", ""), 240)
-        combined = (ai_query + " " + visual).casefold()
+        combined = (ai_query + " " + visual + " " + clean_text(scene.get("narration", ""), 240)).casefold()
+        # Preserve named show identity: generic AI visual terms must not override it.
+        script_context = (clean_text(payload.topic, 160) + " " + clean_text(payload.script, 5000)).casefold()
+        has_bigg_boss = bool(re.search(r"bigg\\s*boss|बिग\\s*बॉस", script_context))
+        bigg_boss_brand_scene = has_bigg_boss and any(term in combined for term in (
+            "logo", "headline", "studio", "intro", "show", "house", "contestant", "television"
+        ))
         person_scene = any(term in combined for term in (
             "portrait", "glamour", "glam", "actress", "actor", "celebrity", "headshot",
             "red carpet", "photoshoot", "fashion", "movie still", "film star"
         ))
         queries = []
+        if bigg_boss_brand_scene:
+            queries.extend(["Bigg Boss 20 logo", "Bigg Boss reality show India"])
         if person_scene and is_person_topic():
             queries.extend([core, concise_terms(core + " portrait", 4)])
         else:
