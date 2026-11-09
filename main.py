@@ -384,6 +384,115 @@ async def trends(region: str = "IN", q: str | None = None):
     }
 
 
+@app.get("/api/predictions")
+async def trend_predictions(region: str = "IN", limit: int = 10):
+    """Estimate near-term trend direction from observed in-memory snapshots.
+
+    This reuses the existing trends cache/feed path. It does not call an AI model,
+    add polling, or claim to predict virality or trend lifetime.
+    """
+    if limit < 1 or limit > 20:
+        raise HTTPException(status_code=422, detail="Limit must be between 1 and 20.")
+
+    region = region.upper()
+    feed = await trends(region=region, q=None)
+    history = _trend_history.get(region, [])
+    latest_snapshot = history[-1] if history else {}
+    latest_items = latest_snapshot.get("items", {})
+    predictions = []
+
+    for item in feed.get("trends", []):
+        key = re.sub(r"[^a-z0-9]+", " ", item.get("title", "").casefold()).strip()
+        observed = []
+        for snapshot in history:
+            record = snapshot.get("items", {}).get(key)
+            if record and isinstance(record.get("score"), (int, float)):
+                observed.append({
+                    "timestamp": snapshot.get("timestamp"),
+                    "score": int(record["score"]),
+                })
+        observed = observed[-5:]
+        current_score = max(0, min(100, int(item.get("trend_score", 0) or 0)))
+
+        if len(observed) < 2:
+            predictions.append({
+                **item,
+                "prediction_status": "collecting",
+                "outlook": "insufficient_history",
+                "outlook_label": "Collecting signals",
+                "momentum_score": None,
+                "projected_score": None,
+                "confidence": "low",
+                "observations": len(observed),
+                "score_changes": [],
+                "explanation": "At least two trend snapshots are needed before estimating direction.",
+            })
+            continue
+
+        changes = [
+            observed[index]["score"] - observed[index - 1]["score"]
+            for index in range(1, len(observed))
+        ]
+        average_change = sum(changes) / len(changes)
+        latest_change = changes[-1]
+        acceleration = changes[-1] - changes[-2] if len(changes) > 1 else 0
+
+        if latest_change <= -3:
+            outlook, label = "declining", "Losing momentum"
+        elif latest_change >= 3 and acceleration >= 2:
+            outlook, label = "accelerating", "Momentum accelerating"
+        elif latest_change >= 3:
+            outlook, label = "rising", "Momentum rising"
+        else:
+            outlook, label = "steady", "Relatively steady"
+
+        projected_score = max(0, min(100, round(current_score + average_change)))
+        momentum_score = max(0, min(100, round(50 + average_change * 5)))
+        confidence = "low" if len(observed) == 2 else "moderate"
+        if len(observed) >= 5:
+            confidence = "moderate"
+
+        explanations = {
+            "declining": "Recent snapshots show the trend score moving down.",
+            "accelerating": "Recent score gains are getting stronger across snapshots.",
+            "rising": "Recent snapshots show the trend score moving up.",
+            "steady": "Recent snapshots show little directional change.",
+        }
+        predictions.append({
+            **item,
+            "prediction_status": "estimated",
+            "outlook": outlook,
+            "outlook_label": label,
+            "momentum_score": momentum_score,
+            "projected_score": projected_score,
+            "confidence": confidence,
+            "observations": len(observed),
+            "score_changes": changes,
+            "explanation": explanations[outlook],
+        })
+
+    order = {"accelerating": 0, "rising": 1, "steady": 2,
+             "declining": 3, "insufficient_history": 4}
+    predictions.sort(key=lambda row: (
+        order.get(row["outlook"], 5),
+        -(row.get("momentum_score") or 0),
+        -int(row.get("trend_score", 0) or 0),
+    ))
+    return {
+        "region": feed.get("region", region),
+        "count": min(limit, len(predictions)),
+        "predictions": predictions[:limit],
+        "history_snapshots": len(history),
+        "methodology": "Near-term direction estimate from observed TrendRadar score changes across recent in-memory snapshots.",
+        "limitations": [
+            "This is a directional estimate, not a prediction of virality, views, or trend lifetime.",
+            "History is process-local and resets when the service restarts.",
+            "A cold start needs at least two feed refresh snapshots before direction can be estimated.",
+            "No additional polling, external feed requests, or AI-model calls are added by this endpoint."
+        ],
+    }
+
+
 @app.get("/api/opportunities")
 async def viral_opportunities(region: str = "IN", limit: int = 10):
     """Rank existing cached trends by transparent, data-backed content opportunity signals.
