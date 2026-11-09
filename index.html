@@ -397,8 +397,7 @@
 
   // Backend heartbeat: green apple means /api/health responded successfully.
   async function checkBackendConnection() {
-    const apple = $("connectionApple");
-    const dot = $("connectionDot");
+    const apple = $("connectionApple");    const dot = $("connectionDot");
     if (!apple || !dot) return;
     apple.textContent = "🍎";
     apple.setAttribute("aria-label", "Checking connection");
@@ -797,8 +796,7 @@ aiButton.addEventListener("click", async () => {
           choice.type = "button";
           choice.className = "visual-choice internet-image-choice";
           const img = document.createElement("img");
-          img.loading = "lazy";
-          img.alt = item.title || scene.visual || "Suggested scene image";
+          img.loading = "lazy";          img.alt = item.title || scene.visual || "Suggested scene image";
           // Try the server-side image proxy first (avoids many hotlink/CORS issues).
           // If the source host is not supported by the proxy, try the original URL.
           const originalImageUrl = item.image_url;
@@ -1197,8 +1195,7 @@ aiButton.addEventListener("click", async () => {
     const button = $("generateVoiceBtn");
     const narration = getNarrationText(fullScript);
     if (language !== "Hindi") throw new Error("Indic Tiny TTS abhi Hindi (Devanagari) ke liye hai. Script Language ko Hindi select karein.");
-    if (narration.length < 20) throw new Error("Hindi narration nahi mil paya. Script mein COMPLETE VIDEO SCRIPT heading aur Devanagari Hindi dialogue check karein, phir dobara try karein.");
-    if (!/[\u0900-\u097F]/.test(narration)) throw new Error("Voice ke liye Hindi text Devanagari mein hona chahiye, jaise: नमस्ते दोस्तों।");
+    if (narration.length < 20) throw new Error("Hindi narration nahi mil paya. Script mein COMPLETE VIDEO SCRIPT heading aur Devanagari Hindi dialogue check karein, phir dobara try karein.");    if (!/[\u0900-\u097F]/.test(narration)) throw new Error("Voice ke liye Hindi text Devanagari mein hona chahiye, jaise: नमस्ते दोस्तों।");
     button.disabled = true;
     button.textContent = "🎙️ Creating voice…";
     $("scriptMessage").textContent = "Indic Tiny Hindi voice is being generated. First use may download the model…";
@@ -1412,7 +1409,18 @@ Keep the reporting factual. Do not invent facts or unverified details.`;
   $("refreshBtn").addEventListener("click", loadTrends);
   $("opportunityRefreshBtn").addEventListener("click", loadOpportunities);
   $("opportunityLimit").addEventListener("change", () => renderOpportunities(currentOpportunities));
-  $("region").addEventListener("change", () => { $("opportunityRegion").textContent = $("region").selectedOptions[0]?.textContent || $("region").value; });
+  $("region").addEventListener("change", () => {
+    $("opportunityRegion").textContent = $("region").selectedOptions[0]?.textContent || $("region").value;
+    // Never leave results from the previous region visible under the newly selected region.
+    currentOpportunities = [];
+    $("opportunityResults").replaceChildren();
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "Region changed. Select Find opportunities to load results for this region.";
+    $("opportunityResults").append(empty);
+    $("opportunityMessage").textContent = "Results cleared. Find opportunities to analyse the selected region.";
+    $("opportunityMessage").className = "message";
+  });
   $("trendLimit").addEventListener("change", () => renderTrends(currentTrends));
   $("region").addEventListener("change", loadTrends);
   $("keyword").addEventListener("keydown", event => { if (event.key === "Enter") loadTrends(); });
