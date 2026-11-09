@@ -30,7 +30,7 @@ load_dotenv()
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger("trendradar")
 
-APP_VERSION = "1.9.3"
+APP_VERSION = "1.9.4"
 
 # Read both keys. Empty keys are ignored; never log key values.
 GEMINI_API_KEYS = [
@@ -381,6 +381,101 @@ async def trends(region: str = "IN", q: str | None = None):
         "trends": filtered, "sources": source_status,
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "score_note": "Trend scores are TrendRadar estimates based on recency, repeated feed mentions, source coverage and available popularity signals. They are not official platform virality metrics.",
+    }
+
+
+@app.get("/api/opportunities")
+async def viral_opportunities(region: str = "IN", limit: int = 10):
+    """Rank existing cached trends by transparent, data-backed content opportunity signals.
+
+    This endpoint reuses /api/trends; it does not add feed requests or background work.
+    Competition is intentionally not estimated because no reliable competitor dataset
+    is currently connected.
+    """
+    if limit < 1 or limit > 20:
+        raise HTTPException(status_code=422, detail="Limit must be between 1 and 20.")
+
+    feed = await trends(region=region, q=None)
+    now = datetime.now(timezone.utc)
+    opportunities = []
+
+    stage_momentum = {
+        "emerging": 95, "rising": 85, "viral": 75, "new": 70,
+        "collecting": 55, "stable": 45, "declining": 15,
+    }
+
+    for item in feed.get("trends", []):
+        trend_score = max(0, min(100, int(item.get("trend_score", 0) or 0)))
+        stage = str(item.get("trend_stage") or "collecting").lower()
+        delta = item.get("growth_delta")
+
+        momentum = stage_momentum.get(stage, 50)
+        if isinstance(delta, (int, float)):
+            momentum = max(0, min(100, int(50 + delta * 5)))
+
+        published = parse_date(item.get("published_at"))
+        age_hours = max(0, (now - published).total_seconds() / 3600) if published else 48
+        freshness = 100 if age_hours <= 3 else 85 if age_hours <= 12 else 70 if age_hours <= 24 else 45 if age_hours <= 48 else 20
+
+        source_names = [part.strip() for part in str(item.get("source", "")).split("+") if part.strip()]
+        source_coverage = min(100, len(source_names) * 50)
+
+        # Weighted estimate from signals the product actually has today.
+        opportunity_score = round(
+            trend_score * 0.40 + momentum * 0.30 +
+            freshness * 0.20 + source_coverage * 0.10
+        )
+        if opportunity_score >= 75:
+            label = "High opportunity"
+        elif opportunity_score >= 55:
+            label = "Promising"
+        else:
+            label = "Monitor"
+
+        reasons = []
+        if trend_score >= 70:
+            reasons.append("Strong current trend score")
+        if stage in {"emerging", "rising", "new"}:
+            reasons.append("Early or growing trend stage")
+        if age_hours <= 24:
+            reasons.append("Fresh coverage within the last 24 hours")
+        if len(source_names) > 1:
+            reasons.append("Covered by multiple source types")
+        if not reasons:
+            reasons.append("Worth monitoring as more trend signals arrive")
+
+        row = dict(item)
+        row.update({
+            "opportunity_score": opportunity_score,
+            "opportunity_label": label,
+            "opportunity_reasons": reasons,
+            "signals": {
+                "audience_interest": trend_score,
+                "momentum": momentum,
+                "freshness": freshness,
+                "source_coverage": source_coverage,
+                "competition": None,
+            },
+            "competition_status": "not_measured",
+            "suggested_angle": "Explain what is happening, why it matters to the audience, and what may happen next.",
+        })
+        opportunities.append(row)
+
+    opportunities.sort(
+        key=lambda row: (row["opportunity_score"], row.get("trend_score", 0)),
+        reverse=True,
+    )
+    return {
+        "region": feed.get("region", region.upper()),
+        "count": min(limit, len(opportunities)),
+        "opportunities": opportunities[:limit],
+        "methodology": "Estimate based on current trend score (40%), momentum (30%), freshness (20%) and source coverage (10%). This is not a prediction of virality.",
+        "limitations": [
+            "Creator competition is not measured because reliable competitor data is not connected.",
+            "Scores are estimates from available trend feeds, not guaranteed reach or views.",
+        ],
+        "sources": feed.get("sources", {}),
+        "updated_at": feed.get("updated_at"),
     }
 
 
