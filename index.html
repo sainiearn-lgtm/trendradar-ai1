@@ -987,55 +987,79 @@ aiButton.addEventListener("click", async () => {
         uploadInput.hidden = true;
         uploadButton.addEventListener("click", () => uploadInput.click());
 
-        uploadInput.addEventListener("change", () => {
+        uploadInput.addEventListener("change", async () => {
           const files = Array.from(uploadInput.files || []).filter(file => file.type.startsWith("image/"));
           if (!files.length) {
             uploadInput.value = "";
             return;
           }
 
-          const current = Array.isArray(selectedVisuals[scene.scene])
-            ? selectedVisuals[scene.scene]
-            : [];
-          const uploaded = files.map(file => ({
-            image_url: URL.createObjectURL(file),
-            title: file.name,
-            provider: "Your Upload"
-          }));
-
-          // Show every uploaded photo as a normal selectable thumbnail and
-          // add it to the selection without removing Internet/AI choices.
-          uploaded.forEach(item => {
-            const choice = document.createElement("button");
-            choice.type = "button";
-            choice.className = "visual-choice selected";
-            const img = document.createElement("img");
-            img.src = item.image_url;
-            img.alt = item.title;
-            const title = document.createElement("span");
-            title.textContent = "📁 " + item.title;
-            choice.append(img, title);
-            choice.addEventListener("click", () => {
-              const selected = Array.isArray(selectedVisuals[scene.scene])
-                ? selectedVisuals[scene.scene]
-                : [];
-              const exists = selected.some(entry => entry.image_url === item.image_url);
-              if (exists) {
-                selectedVisuals[scene.scene] = selected.filter(entry => entry.image_url !== item.image_url);
-                choice.classList.remove("selected");
-              } else {
-                selectedVisuals[scene.scene] = [...selected, item];
-                choice.classList.add("selected");
-              }
-              if (!selectedVisuals[scene.scene].length) delete selectedVisuals[scene.scene];
-              updateVisualSelectionStatus();
+          // Convert uploads to self-contained data URLs. This avoids Android
+          // browser Blob URL lifetime/origin issues during later video rendering.
+          const readAsDataUrl = file => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve({
+              image_url: String(reader.result || ""),
+              title: file.name,
+              provider: "Your Upload"
             });
-            images.append(choice);
+            reader.onerror = () => reject(new Error("Photo read nahi ho payi: " + file.name));
+            reader.readAsDataURL(file);
           });
 
-          selectedVisuals[scene.scene] = [...current, ...uploaded];
-          updateVisualSelectionStatus();
-          uploadInput.value = "";
+          uploadButton.disabled = true;
+          uploadButton.textContent = "Reading photo(s)…";
+          try {
+            const uploaded = await Promise.all(files.map(readAsDataUrl));
+            const sceneKey = String(scene.scene);
+
+            // Read the latest selection after file conversion so repeated
+            // uploads to the same scene never overwrite earlier selections.
+            const current = Array.isArray(selectedVisuals[sceneKey])
+              ? selectedVisuals[sceneKey]
+              : [];
+            const additions = uploaded.filter(item =>
+              !current.some(existing => existing.image_url === item.image_url)
+            );
+
+            additions.forEach(item => {
+              const choice = document.createElement("button");
+              choice.type = "button";
+              choice.className = "visual-choice selected";
+              const img = document.createElement("img");
+              img.src = item.image_url;
+              img.alt = item.title;
+              const title = document.createElement("span");
+              title.textContent = "📁 " + item.title;
+              choice.append(img, title);
+              choice.addEventListener("click", () => {
+                const selected = Array.isArray(selectedVisuals[sceneKey])
+                  ? selectedVisuals[sceneKey]
+                  : [];
+                const exists = selected.some(entry => entry.image_url === item.image_url);
+                if (exists) {
+                  selectedVisuals[sceneKey] = selected.filter(entry => entry.image_url !== item.image_url);
+                  choice.classList.remove("selected");
+                } else {
+                  selectedVisuals[sceneKey] = [...selected, item];
+                  choice.classList.add("selected");
+                }
+                if (!selectedVisuals[sceneKey].length) delete selectedVisuals[sceneKey];
+                updateVisualSelectionStatus();
+              });
+              images.append(choice);
+            });
+
+            selectedVisuals[sceneKey] = [...current, ...additions];
+            updateVisualSelectionStatus();
+          } catch (error) {
+            $("visualMessage").textContent = error.message || "Uploaded photo read nahi ho payi.";
+            $("visualMessage").className = "message error";
+          } finally {
+            uploadButton.disabled = false;
+            uploadButton.textContent = "📁 Upload your image(s)";
+            uploadInput.value = "";
+          }
         });
 
         uploadLabel.append(uploadButton, uploadInput);
@@ -1179,7 +1203,12 @@ aiButton.addEventListener("click", async () => {
     const message = $("videoMessage");
     const missingScenes = storyboardScenes.filter(scene => !(selectedVisuals[scene.scene] || []).length).map(scene => scene.scene);
     if (!storyboardScenes.length || missingScenes.length) throw new Error(missingScenes.length ? `Scene ${missingScenes.join(", ")} ke liye kam se kam ek photo select karo.` : "Pehle Find matching images dabao.");
-    const chosen = storyboardScenes.flatMap(scene => (selectedVisuals[scene.scene] || []).map(image => ({scene, image})));
+    // Build the render queue in storyboard order and normalize scene keys.
+    // This guarantees each uploaded photo stays attached to its own scene.
+    const chosen = storyboardScenes.flatMap(scene => {
+      const sceneImages = selectedVisuals[String(scene.scene)] || selectedVisuals[scene.scene] || [];
+      return sceneImages.map(image => ({scene, image}));
+    });
     if (!currentAudioBlob) throw new Error("Pehle Hindi voiceover generate karo. Script + Voice button use kar sakte ho.");
     if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) throw new Error("Is browser mein video recording support nahi hai. Chrome ka latest version try karein.");
     button.disabled = true;
