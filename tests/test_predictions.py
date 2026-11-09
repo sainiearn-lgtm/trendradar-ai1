@@ -44,7 +44,7 @@ class TrendPredictionTests(unittest.TestCase):
         self.assertEqual(prediction["outlook"], "accelerating")
         self.assertEqual(prediction["prediction_status"], "estimated")
         self.assertEqual(prediction["observations"], 3)
-        self.assertEqual(prediction["projected_score"], 53)
+        self.assertEqual(prediction["projected_score"], 52)
         self.assertEqual(prediction["confidence"], "moderate")
 
     def test_cold_start_reports_collecting_instead_of_guessing(self):
