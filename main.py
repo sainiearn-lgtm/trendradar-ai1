@@ -17,7 +17,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any
-from urllib.parse import urlparse, quote
+from urllib.parse import urlparse, quote, urljoin
 
 import httpx
 from dotenv import load_dotenv
@@ -930,33 +930,111 @@ def _render_indic_audio(text: str, gender: str, speed: int, pitch: int, volume: 
 @app.get("/api/pixabay-image")
 @app.get("/api/image-proxy")
 async def proxy_pixabay_image(url: str):
-    """Fetch approved image hosts server-side and cache image bytes for 24 hours."""
-    parsed = urlparse(url)
-    host = (parsed.hostname or "").lower()
+    """Fetch images only from approved HTTPS hosts, validating every redirect."""
     allowed_hosts = (
         "pixabay.com", "wikimedia.org", "flickr.com", "staticflickr.com",
         "wordpress.com", "wp.com", "creativecommons.org", "openverse.org",
         "unsplash.com",
     )
-    allowed = any(host == domain or host.endswith("." + domain) for domain in allowed_hosts)
-    if parsed.scheme != "https" or not allowed:
+
+    def approved_image_url(candidate: str) -> bool:
+        try:
+            parsed = urlparse(candidate)
+            host = (parsed.hostname or "").lower().rstrip(".")
+            allowed = any(
+                host == domain or host.endswith("." + domain)
+                for domain in allowed_hosts
+            )
+            # Reject credentials, non-standard ports, IP literals and non-HTTPS URLs.
+            return (
+                parsed.scheme == "https"
+                and allowed
+                and parsed.username is None
+                and parsed.password is None
+                and parsed.port in (None, 443)
+            )
+        except (TypeError, ValueError):
+            return False
+
+    if not approved_image_url(url):
         raise HTTPException(status_code=400, detail="Unsupported image host.")
 
     cached_image = _pixabay_image_cache.get(url)
     if cached_image and time.monotonic() - cached_image[0] < 86400:
-        return Response(content=cached_image[1], media_type=cached_image[2],
-                        headers={"Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*"})
+        return Response(
+            content=cached_image[1],
+            media_type=cached_image[2],
+            headers={"Cache-Control": "public, max-age=86400",
+                     "Access-Control-Allow-Origin": "*"},
+        )
 
+    max_bytes = 15 * 1024 * 1024
     try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=20) as client:
-            resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0 TrendRadarAI"})
-            resp.raise_for_status()
-        content_type = resp.headers.get("content-type", "image/jpeg").split(";")[0]
-        if not content_type.startswith("image/") or len(resp.content) > 15 * 1024 * 1024:
-            raise HTTPException(status_code=415, detail="Invalid or oversized image.")
-        _pixabay_image_cache[url] = (time.monotonic(), resp.content, content_type)
-        return Response(content=resp.content, media_type=content_type,
-                        headers={"Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*"})
+        current_url = url
+        image_bytes = bytearray()
+        content_type = ""
+
+        async with httpx.AsyncClient(
+            follow_redirects=False,
+            timeout=httpx.Timeout(20.0, connect=8.0),
+        ) as client:
+            for redirect_count in range(6):
+                if not approved_image_url(current_url):
+                    raise HTTPException(status_code=400, detail="Image redirect host is not allowed.")
+
+                async with client.stream(
+                    "GET", current_url,
+                    headers={"User-Agent": "Mozilla/5.0 TrendRadarAI"},
+                ) as resp:
+                    if resp.is_redirect:
+                        location = resp.headers.get("location")
+                        if not location or redirect_count >= 5:
+                            raise HTTPException(status_code=502, detail="Image source redirected too many times.")
+                        current_url = urljoin(current_url, location)
+                        continue
+
+                    resp.raise_for_status()
+                    content_type = resp.headers.get("content-type", "image/jpeg").split(";")[0].lower()
+                    if not content_type.startswith("image/"):
+                        raise HTTPException(status_code=415, detail="Image source did not return an image.")
+
+                    content_length = resp.headers.get("content-length")
+                    if content_length:
+                        try:
+                            if int(content_length) > max_bytes:
+                                raise HTTPException(status_code=415, detail="Image is too large.")
+                        except ValueError:
+                            pass
+
+                    async for chunk in resp.aiter_bytes():
+                        image_bytes.extend(chunk)
+                        if len(image_bytes) > max_bytes:
+                            raise HTTPException(status_code=415, detail="Image is too large.")
+                    break
+            else:
+                raise HTTPException(status_code=502, detail="Image source redirected too many times.")
+
+        if not image_bytes:
+            raise HTTPException(status_code=502, detail="Image source returned an empty file.")
+
+        # Keep the in-memory cache bounded on small instances.
+        now = time.monotonic()
+        expired = [key for key, item in _pixabay_image_cache.items()
+                   if now - item[0] >= 86400]
+        for key in expired:
+            _pixabay_image_cache.pop(key, None)
+        if len(_pixabay_image_cache) >= 100:
+            oldest = min(_pixabay_image_cache, key=lambda key: _pixabay_image_cache[key][0])
+            _pixabay_image_cache.pop(oldest, None)
+
+        payload = bytes(image_bytes)
+        _pixabay_image_cache[url] = (now, payload, content_type)
+        return Response(
+            content=payload,
+            media_type=content_type,
+            headers={"Cache-Control": "public, max-age=86400",
+                     "Access-Control-Allow-Origin": "*"},
+        )
     except HTTPException:
         raise
     except Exception as exc:
