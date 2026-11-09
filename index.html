@@ -807,8 +807,17 @@ aiButton.addEventListener("click", async () => {
 
       const canvas = document.createElement("canvas");
       canvas.width = 720; canvas.height = 1280;
-      const ctx = canvas.getContext("2d");
+      const ctx = canvas.getContext("2d", { alpha: false });
+      if (!ctx) throw new Error("Video canvas start nahi ho paya. Chrome mein dobara try karein.");
+
+      // Paint a real frame BEFORE starting canvas capture. Some Android browsers
+      // otherwise start recording the audio while the video track stays black.
+      drawVideoFrame(ctx, loaded[0].bitmap,
+        loaded[0].scene.narration || loaded[0].scene.visual,
+        1, loaded.length, canvas.width, canvas.height);
       const canvasStream = canvas.captureStream(30);
+      const videoTrack = canvasStream.getVideoTracks()[0];
+      if (!videoTrack) throw new Error("Browser ne video track create nahi ki. Chrome update karke retry karein.");
       const combined = new MediaStream([...canvasStream.getVideoTracks(), ...audioDestination.stream.getAudioTracks()]);
       const mimeCandidates = ["video/mp4;codecs=h264,aac", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
       const mimeType = mimeCandidates.find(type => MediaRecorder.isTypeSupported(type)) || "";
@@ -828,6 +837,8 @@ aiButton.addEventListener("click", async () => {
         const index = Math.min(loaded.length - 1, Math.floor(elapsed / sceneDuration));
         const item = loaded[index];
         drawVideoFrame(ctx, item.bitmap, item.scene.narration || item.scene.visual, index + 1, loaded.length, canvas.width, canvas.height);
+        // Explicitly request a frame where supported; regular 30fps capture remains the fallback.
+        if (typeof videoTrack.requestFrame === "function") videoTrack.requestFrame();
         const percent = Math.min(99, Math.floor(elapsed / duration * 100));
         message.textContent = `Video render ho raha hai… ${percent}%`;
         if (elapsed < duration && recorder.state === "recording") rafId = requestAnimationFrame(paint);
