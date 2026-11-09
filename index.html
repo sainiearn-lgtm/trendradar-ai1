@@ -727,11 +727,16 @@ aiButton.addEventListener("click", async () => {
       img.onerror = () => reject(new Error(
         "Selected image load nahi hui. Dusri image select karke retry karein."
       ));
-      const finalUrl = (url.startsWith("blob:") || url.startsWith("data:"))
-  ? url
-  : url.startsWith("/")
-    ? apiUrl(url)
-    : apiUrl("/api/image-proxy?url=" + encodeURIComponent(url));
+      const isLocalObject = url.startsWith("blob:") || url.startsWith("data:");
+      const finalUrl = isLocalObject
+        ? url
+        : url.startsWith("/")
+          ? apiUrl(url)
+          : apiUrl("/api/image-proxy?url=" + encodeURIComponent(url));
+
+      // The frontend and Render API are different origins. Without CORS mode,
+      // drawing a remotely loaded image taints the canvas and captureStream fails.
+      if (!isLocalObject) img.crossOrigin = "anonymous";
       img.src = finalUrl;
     });
   }
