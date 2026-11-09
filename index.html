@@ -568,7 +568,7 @@
     try {
       const params = new URLSearchParams({
         region: $("region").value,
-        limit: $("opportunityLimit").value || "10"
+        limit: "20"
       });
       const data = await readJson(await fetch(apiUrl("/api/opportunities?" + params.toString()), {
         headers: {"Accept":"application/json"}
