@@ -1699,14 +1699,14 @@ Script:
                             continue
                         seen_urls.add(url)
                         all_images.append(item)
-                        if len(all_images) >= 5:
+                        if len(all_images) >= 15:
                             break
                     logger.info("Pixabay scene query: scene=%s query=%r accepted=%s", scene.get("scene", "?"), query, len(all_images))
                     if len(all_images) >= 5:
                         break
 
             # Openverse supplies another pool of openly licensed generic visuals.
-            if len(all_images) < 5 and not named_subject and not named_movie_poster:
+            if len(all_images) < 15 and not named_subject and not named_movie_poster:
                 for query in queries[:3]:
                     results = await find_openverse_images(client, query)
                     accepted_before = len(all_images)
@@ -1754,7 +1754,7 @@ Script:
                     if len(all_images) >= 5:
                         break
             logger.info("Image search complete: scene=%s images=%s", scene.get("scene", "?"), len(all_images))
-                        # Rank all accepted candidates across providers instead of trusting provider order.
+            # Rank accepted candidates instead of trusting provider order.
             # If metadata cannot establish relevance, the candidate is not promoted.
             def best_score(item):
                 scores = [scene_relevance_score(item, scene, q) for q in queries]
