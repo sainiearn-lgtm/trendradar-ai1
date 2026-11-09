@@ -26,6 +26,18 @@
     .eyebrow { color:var(--cyan); font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:1.8px; }
     h1 { margin:8px 0 8px; font-size:clamp(32px,5vw,52px); line-height:1.08; letter-spacing:-1.8px; }
     .lead { max-width:650px; margin:0; color:var(--muted); font-size:16px; }
+    .hero-intro { position:relative; max-width:780px; margin:0 0 30px; padding:30px 30px 28px; overflow:hidden; border:1px solid rgba(7,143,145,.16); border-radius:24px; background:radial-gradient(ellipse at 88% 10%,rgba(84,141,224,.13),transparent 42%),linear-gradient(135deg,#fff 0%,#f3fbfb 55%,#f5f8ff 100%); box-shadow:0 14px 38px rgba(30,55,85,.07); }
+    .hero-intro:after { content:"✦"; position:absolute; right:30px; top:16px; color:rgba(7,143,145,.12); font-size:100px; line-height:1; pointer-events:none; }
+    .hero-kicker { display:inline-flex; align-items:center; gap:8px; color:#078f91; font-size:10px; font-weight:900; letter-spacing:1.8px; }
+    .hero-kicker-dot { width:7px; height:7px; border-radius:50%; background:#18aaa1; box-shadow:0 0 0 5px rgba(24,170,161,.11); }
+    .hero-title { position:relative; z-index:1; margin:15px 0 0; font-size:clamp(44px,7vw,70px); line-height:.98; letter-spacing:-3px; font-weight:900; color:#17263b; }
+    .hero-title span { color:transparent; background:linear-gradient(105deg,#078f91 8%,#356fc4 90%); background-clip:text; -webkit-background-clip:text; }
+    .hero-byline { display:flex; align-items:center; gap:7px; margin:10px 0 16px; color:#74849a; font-size:14px; font-weight:600; letter-spacing:.2px; }
+    .hero-byline strong { color:#263e5a; font-weight:850; }
+    .hero-spark { color:#17aaa2; font-size:17px; }
+    .hero-about { position:relative; z-index:1; max-width:660px; font-size:15px; line-height:1.75; }
+    @media(max-width:700px) { .hero-intro { padding:23px 20px; border-radius:19px; } .hero-title { letter-spacing:-2px; } .hero-intro:after { right:15px; top:15px; font-size:76px; } }
+
     .controls { display:grid; grid-template-columns:180px 1fr auto; gap:10px; margin:28px 0 22px; }
     .field, select, input, textarea { width:100%; border:1px solid var(--line); border-radius:12px; background:rgba(20,37,59,.88); color:var(--text); padding:13px 14px; outline:none; }
     .field:focus, select:focus, input:focus, textarea:focus { border-color:var(--cyan); box-shadow:0 0 0 3px rgba(85,223,208,.1); }
@@ -219,9 +231,12 @@
   </aside>
   <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
   <main id="pageTop">
-    <div class="eyebrow">Signal over noise</div>
-    <h1>Find the next big<br />content idea.</h1>
-    <p class="lead">Discover what people are searching and talking about, then turn a promising topic into a video script with AI.</p>
+    <section class="hero-intro" aria-label="TrendRadar AI introduction">
+      <div class="hero-kicker"><span class="hero-kicker-dot"></span> YOUR CREATOR WORKSPACE</div>
+      <h1 class="hero-title">Ready to <span>Post.</span></h1>
+      <div class="hero-byline">by <strong>TrendRadar AI</strong><span class="hero-spark">✦</span></div>
+      <p class="lead hero-about">Spot rising trends, discover what your audience is talking about, and turn fresh ideas into publish-ready videos with AI-powered scripts, voiceovers and video creation — all in one place.</p>
+    </section>
     <section class="controls" id="trendKeywords" aria-label="Trend filters">
       <select id="region" class="field" aria-label="Select region">
         <option value="IN">🇮🇳 India</option><option value="US">🇺🇸 United States</option>
