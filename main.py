@@ -172,11 +172,13 @@ async def fetch_gdelt(client: httpx.AsyncClient, region: str) -> list[dict]:
     # Restrict articles to publishers originating in the selected country.
     # A plain search for the word "India" also returns international stories
     # that merely mention India, which polluted the India trend feed.
-    country_codes = {"IN": {"india", "ind", "in"}, "US": {"united states", "usa", "us"},
-                     "GB": {"united kingdom", "uk", "gb"}, "CA": {"canada", "ca"},
-                     "AU": {"australia", "au"}, "DE": {"germany", "de"}}
+    country_names = {"IN": "india", "US": "unitedstates", "GB": "unitedkingdom",
+                     "CA": "canada", "AU": "australia", "DE": "germany"}
+    country_codes = {"IN": {"india"}, "US": {"united states"},
+                     "GB": {"united kingdom"}, "CA": {"canada"},
+                     "AU": {"australia"}, "DE": {"germany"}}
     params = {
-        "query": f"sourcecountry:{ {'IN':'IND','US':'USA','GB':'GBR','CA':'CAN','AU':'AUS','DE':'DEU'}.get(region, 'IND') }",
+        "query": f"sourcecountry:{country_names.get(region, 'india')}",
         "mode": "ArtList", "format": "json",
         "sort": "HybridRel", "maxrecords": "50", "timespan": "24h",
     }
