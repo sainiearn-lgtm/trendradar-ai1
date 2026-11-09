@@ -1,0 +1,52 @@
+name: Validate TrendRadar AI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, "feature/**"]
+
+jobs:
+  syntax-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check backend Python syntax
+        run: python -m py_compile main.py
+
+      - name: Install lightweight API test dependencies
+        run: python -m pip install "fastapi==0.115.12" "httpx==0.28.1" "python-dotenv==1.1.0" "pydantic>=2,<3"
+
+      - name: Run isolated Opportunity Finder API tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Check frontend JavaScript syntax
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path("index.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script>(.*?)</script>", html, flags=re.S | re.I)
+          if not scripts:
+              raise SystemExit("No inline JavaScript block found")
+          Path("/tmp/trendradar-inline.js").write_text(scripts[-1], encoding="utf-8")
+          required = [
+              'id="opportunityFinder"',
+              'apiUrl("/api/opportunities?"',
+              'function renderOpportunities',
+              'function loadOpportunities',
+          ]
+          for token in required:
+              if token not in html:
+                  raise SystemExit(f"Missing Opportunity Finder integration: {token}")
+          print("Opportunity Finder markup and handlers found.")
+          PY
+          node --check /tmp/trendradar-inline.js
