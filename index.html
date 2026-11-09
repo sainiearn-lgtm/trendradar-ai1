@@ -532,6 +532,7 @@
       const make = document.createElement("button"); make.className = "mini-btn"; make.textContent = "Create script with this context →";
       make.addEventListener("click", () => {
         $("customTopic").value = title;
+        selectedTrendTopic = title;
         selectedTrendContext = [
           "Why trending: " + (trend.why_trending || "No clear related-news reason was supplied; do not guess."),
           "Trend summary: " + summary,
@@ -742,9 +743,11 @@
   }
 
   let selectedTrendContext = "";
-  $("customTopic").addEventListener("input", () => { selectedTrendContext = ""; });
+  let selectedTrendTopic = "";
+  $("customTopic").addEventListener("input", () => { selectedTrendContext = ""; selectedTrendTopic = ""; });
 
   async function requestScript(topic, language, button, withVoice = false) {
+    if (selectedTrendTopic !== topic) selectedTrendContext = "";
     if (!topic) {
       $("scriptMessage").textContent = "Please enter a topic first.";
       $("scriptMessage").className = "message error";
