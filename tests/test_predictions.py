@@ -33,7 +33,7 @@ class TrendPredictionTests(unittest.TestCase):
         ]
 
     def test_estimates_direction_from_existing_snapshots(self):
-        with patch.object(main, "trends", new=AsyncMock(return_value=self.feed)), \\
+        with patch.object(main, "trends", new=AsyncMock(return_value=self.feed)), \
              patch.dict(main._trend_history, {"IN": self.history}):
             response = self.client.get("/api/predictions?region=IN&limit=5")
 
@@ -48,7 +48,7 @@ class TrendPredictionTests(unittest.TestCase):
         self.assertEqual(prediction["confidence"], "moderate")
 
     def test_cold_start_reports_collecting_instead_of_guessing(self):
-        with patch.object(main, "trends", new=AsyncMock(return_value=self.feed)), \\
+        with patch.object(main, "trends", new=AsyncMock(return_value=self.feed)), \
              patch.dict(main._trend_history, {"IN": []}):
             response = self.client.get("/api/predictions?region=IN")
 
