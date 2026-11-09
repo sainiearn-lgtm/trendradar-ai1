@@ -1268,11 +1268,23 @@ Script:
         seen = set()
         for query in queries:
             query = clean_text(query, 100)
-            key = query.casefold()
-            if query and key not in seen:
-                seen.add(key)
-                unique.append(query)
-        return unique[:4]
+            if not query:
+                continue
+
+            # India-focused discovery: search Indian context first, then retain
+            # the original global query as a fallback. Do not alter named-person
+            # portrait searches, where adding a country can return the wrong person.
+            candidates = [query]
+            if not (is_person_topic() and person_scene):
+                candidates = [f"{query} India", query]
+
+            for candidate in candidates:
+                candidate = clean_text(candidate, 120)
+                key = candidate.casefold()
+                if candidate and key not in seen:
+                    seen.add(key)
+                    unique.append(candidate)
+        return unique[:6]
 
     def is_scene_relevant(item: dict, scene: dict, query: str) -> bool:
         """Reject loosely related Commons hits; prioritize actual title/entity matches."""
@@ -1319,7 +1331,8 @@ Script:
             ))
             named_subject = is_person_topic() and person_scene
 
-            # Pixabay is the primary stock-photo source for generic B-roll.
+            # India-localized queries are tried before global fallbacks for
+            # generic scenes, independent of the server's deployment region.
             # Never use stock search as proof of a named celebrity's identity.
             if PIXABAY_API_KEY and not named_subject:
                 for query in queries[:3]:
@@ -1329,8 +1342,19 @@ Script:
                         if not url or url in seen_urls:
                             continue
                         metadata = (item.get("title", "") + " " + item.get("description", "")).casefold()
-                        terms = [w for w in re.findall(r"[a-z0-9]+", query.casefold()) if len(w) >= 4]
-                        if metadata and terms and not any(w in metadata for w in terms):
+                        terms = [
+                            w for w in re.findall(r"[a-z0-9]+", query.casefold())
+                            if len(w) >= 4 and w not in {"india", "indian"}
+                        ]
+                        # Reject empty or unrelated metadata instead of allowing
+                        # untagged results to slip through the relevance filter.
+                        if terms and not any(
+                            re.search(r"(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])", metadata)
+                            for w in terms
+                        ):
+                            continue
+                        width, height = item.get("width"), item.get("height")
+                        if width and height and (int(width) < 500 or int(height) < 600):
                             continue
                         seen_urls.add(url)
                         all_images.append(item)
