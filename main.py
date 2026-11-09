@@ -878,21 +878,16 @@ def _render_indic_audio(text: str, gender: str, speed: int, pitch: int, volume: 
     if not np.all(np.isfinite(audio)):
         raise RuntimeError("Indic Tiny TTS returned invalid audio samples.")
 
-    # Pitch processing is loaded only when needed. Kaiser resampling avoids
-    # the optional soxr backend and is lighter on small Render instances.
+    # Lightweight pitch shift using NumPy only. Resampling changes the
+    # audible fundamental frequency without requiring librosa/soxr on Render.
+    # Positive values sound higher and shorter; negative values sound lower
+    # and longer. The TTS speaking-speed setting is still applied separately.
     if pitch:
-        import librosa
-        audio = librosa.effects.pitch_shift(
-            y=audio,
-            sr=24000,
-            n_steps=float(pitch),
-            bins_per_octave=12,
-            # Use librosa's SciPy-backed Kaiser resampler. soxr_hq requires
-            # the optional python-soxr package, which is not installed on
-            # every Render build and caused non-zero pitch requests to fail.
-            res_type="kaiser_fast",
-        )
-        audio = np.asarray(audio, dtype=np.float32).reshape(-1)
+        pitch_factor = 2.0 ** (float(pitch) / 12.0)
+        target_length = max(1, int(round(audio.size / pitch_factor)))
+        source_positions = np.arange(audio.size, dtype=np.float64)
+        target_positions = np.linspace(0, audio.size - 1, target_length, dtype=np.float64)
+        audio = np.interp(target_positions, source_positions, audio).astype(np.float32)
         if audio.size == 0 or not np.all(np.isfinite(audio)):
             raise RuntimeError("Pitch processing returned invalid audio.")
 
