@@ -1616,33 +1616,37 @@ Script:
                     unique.append(candidate)
         return unique[:6]
 
-    def is_scene_relevant(item: dict, scene: dict, query: str) -> bool:
-        """Reject loosely related Commons hits; prioritize actual title/entity matches."""
+    def scene_relevance_score(item: dict, scene: dict, query: str) -> int:
+        """Score metadata matches; zero means the image is too weakly related."""
         generic = {
             "photo", "image", "picture", "portrait", "close", "shot", "wide", "view",
             "background", "scene", "visual", "video", "news", "latest", "update",
             "showing", "display", "people", "person", "woman", "man", "beautiful",
             "famous", "indian", "india", "bollywood", "celebrity", "actor", "actress",
             "the", "and", "for", "with", "from", "about", "into", "near", "over",
+            "poster", "movie", "film", "official", "high", "quality", "vertical",
         }
         terms = [w for w in re.findall(r"[a-z0-9]+", query.casefold()) if len(w) >= 3 and w not in generic]
         if not terms:
-            return False
+            return 0
         title = re.sub(r"[^a-z0-9]+", " ", str(item.get("title", "")).casefold())
         desc = re.sub(r"[^a-z0-9]+", " ", str(item.get("description", "")).casefold())
         title_hits = sum(bool(re.search(r"(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])", title)) for w in terms)
         desc_hits = sum(bool(re.search(r"(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])", desc)) for w in terms)
-        # A named person / product with two or more distinctive words must match
-        # both words somewhere in the title/description; generic single-word hits
-        # are not enough to label a result as a correct image.
         total_hits = len(set(
             w for w in terms
             if re.search(r"(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])", title + " " + desc)
         ))
         required = 1 if len(terms) == 1 else 2
         if len(terms) >= 2 and len(terms) <= 3 and title_hits == 0:
-            return False
-        return total_hits >= required and (title_hits >= 1 or desc_hits >= 2)
+            return 0
+        if total_hits < required or not (title_hits >= 1 or desc_hits >= 2):
+            return 0
+        # Title matches carry more weight than broad description/tag matches.
+        return title_hits * 5 + desc_hits * 2 + total_hits
+
+    def is_scene_relevant(item: dict, scene: dict, query: str) -> bool:
+        return scene_relevance_score(item, scene, query) > 0
 
     async def search_scene(client: httpx.AsyncClient, scene: dict, semaphore: asyncio.Semaphore):
         """Search Pixabay/Openverse for generic B-roll and Commons for named subjects."""
@@ -1695,14 +1699,14 @@ Script:
                             continue
                         seen_urls.add(url)
                         all_images.append(item)
-                        if len(all_images) >= 5:
+                        if len(all_images) >= 15:
                             break
                     logger.info("Pixabay scene query: scene=%s query=%r accepted=%s", scene.get("scene", "?"), query, len(all_images))
                     if len(all_images) >= 5:
                         break
 
             # Openverse supplies another pool of openly licensed generic visuals.
-            if len(all_images) < 5 and not named_subject and not named_movie_poster:
+            if len(all_images) < 15 and not named_subject and not named_movie_poster:
                 for query in queries[:3]:
                     results = await find_openverse_images(client, query)
                     accepted_before = len(all_images)
@@ -1750,6 +1754,12 @@ Script:
                     if len(all_images) >= 5:
                         break
             logger.info("Image search complete: scene=%s images=%s", scene.get("scene", "?"), len(all_images))
+                        # Rank all accepted candidates across providers instead of trusting provider order.
+            # If metadata cannot establish relevance, the candidate is not promoted.
+            def best_score(item):
+                scores = [scene_relevance_score(item, scene, q) for q in queries]
+                return max(scores or [0])
+            all_images.sort(key=best_score, reverse=True)
             return all_images[:5]
 
     async with httpx.AsyncClient(follow_redirects=True) as client:
