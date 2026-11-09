@@ -1702,7 +1702,7 @@ Script:
                         if len(all_images) >= 15:
                             break
                     logger.info("Pixabay scene query: scene=%s query=%r accepted=%s", scene.get("scene", "?"), query, len(all_images))
-                    if len(all_images) >= 5:
+                    if len(all_images) >= 15:
                         break
 
             # Openverse supplies another pool of openly licensed generic visuals.
@@ -1717,14 +1717,14 @@ Script:
                         if is_scene_relevant(item, scene, query):
                             seen_urls.add(url)
                             all_images.append(item)
-                        if len(all_images) >= 5:
+                        if len(all_images) >= 15:
                             break
                     logger.info("Openverse scene query: scene=%s query=%r raw=%s accepted=%s", scene.get("scene", "?"), query, len(results), len(all_images) - accepted_before)
-                    if len(all_images) >= 5:
+                    if len(all_images) >= 15:
                         break
 
             # Commons is used for named people and as a fallback for generic visuals.
-            if len(all_images) < 5:
+            if len(all_images) < 15:
                 for broad in (True, False):
                     for query in queries[:5]:
                         logger.info("Wikimedia scene search: scene=%s broad=%s query=%r", scene.get("scene", "?"), broad, query)
@@ -1746,12 +1746,12 @@ Script:
                             item["provider"] = "Wikimedia Commons"
                             seen_urls.add(url)
                             all_images.append(item)
-                            if len(all_images) >= 5:
+                            if len(all_images) >= 15:
                                 break
                         logger.info("Wikimedia scene query result: scene=%s query=%r raw=%s accepted=%s", scene.get("scene", "?"), query, len(results), len(all_images) - accepted_before)
-                        if len(all_images) >= 5:
+                        if len(all_images) >= 15:
                             break
-                    if len(all_images) >= 5:
+                    if len(all_images) >= 15:
                         break
             logger.info("Image search complete: scene=%s images=%s", scene.get("scene", "?"), len(all_images))
             # Rank accepted candidates instead of trusting provider order.
