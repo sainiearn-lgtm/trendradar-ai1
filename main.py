@@ -1699,14 +1699,14 @@ Script:
                             continue
                         seen_urls.add(url)
                         all_images.append(item)
-                        if len(all_images) >= 15:
+                        if len(all_images) >= 5:
                             break
                     logger.info("Pixabay scene query: scene=%s query=%r accepted=%s", scene.get("scene", "?"), query, len(all_images))
                     if len(all_images) >= 5:
                         break
 
             # Openverse supplies another pool of openly licensed generic visuals.
-            if len(all_images) < 15 and not named_subject and not named_movie_poster:
+            if len(all_images) < 5 and not named_subject and not named_movie_poster:
                 for query in queries[:3]:
                     results = await find_openverse_images(client, query)
                     accepted_before = len(all_images)
