@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime, timezone
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -76,7 +76,8 @@ class OpportunityFinderTests(unittest.TestCase):
                 },
             ],
         }
-        with patch.object(main, "trends", return_value=category_feed):
+        with patch.object(main, "trends", return_value=category_feed), \
+             patch.object(main, "fetch_creator_category_news", new=AsyncMock(return_value=[])):
             response = self.client.get("/api/opportunities?category=Entertainment")
 
         self.assertEqual(response.status_code, 200)
@@ -91,6 +92,47 @@ class OpportunityFinderTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 422)
         trends_mock.assert_not_called()
+
+    
+    def test_category_specific_research_supplements_empty_category(self):
+        category_feed = {
+            **self.feed,
+            "trends": [
+                {
+                    **self.feed["trends"][0],
+                    "title": "Sample rising topic",
+                    "summary": "A test trend",
+                },
+            ],
+        }
+        targeted = [{
+            "title": "BGMI India esports tournament announced",
+            "summary": "Recent gaming coverage",
+            "source": "Google News category search",
+            "source_url": "https://news.google.com/example",
+            "published_at": datetime.now(timezone.utc).isoformat(),
+            "category": "Gaming",
+            "creator_category": "Gaming",
+            "trend_score": 70,
+            "trend_stage": "new",
+            "growth_delta": None,
+        }]
+        with patch.object(main, "trends", return_value=category_feed), \
+             patch.object(main, "fetch_creator_category_news", new=AsyncMock(return_value=targeted)) as search_mock:
+            response = self.client.get("/api/opportunities?category=Gaming")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["category_research"], "ok")
+        self.assertEqual(body["category_research_count"], 1)
+        self.assertEqual(len(body["opportunities"]), 1)
+        self.assertEqual(body["opportunities"][0]["title"], targeted[0]["title"])
+        self.assertEqual(body["opportunities"][0]["category"], "Gaming")
+        search_mock.assert_awaited_once()
+
+    def test_category_search_terms_exist_for_each_creator_category(self):
+        self.assertEqual(set(main.CREATOR_CATEGORY_SEARCH_TERMS), set(main.CREATOR_CATEGORIES))
+        self.assertTrue(all(main.CREATOR_CATEGORY_SEARCH_TERMS.values()))
 
     def test_empty_feed_returns_empty_opportunities(self):
         empty_feed = {**self.feed, "trends": [], "count": 0}
