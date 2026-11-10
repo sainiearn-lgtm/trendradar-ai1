@@ -1388,8 +1388,25 @@ aiButton.addEventListener("click", async () => {
       combined.getTracks().forEach(track => track.stop());
       const type = mimeType.startsWith("video/mp4") ? "video/mp4" : "video/webm";
       const extension = type === "video/mp4" ? "mp4" : "webm";
-      const blob = new Blob(chunks, {type});
+      let blob = new Blob(chunks, {type});
       if (!blob.size) throw new Error("Video file empty bani. Browser mein dobara try karein.");
+
+      // Browser MediaRecorder often falls back to WebM/Opus on Android.
+      // Normalize every recording on the server to MP4/H.264/AAC before download.
+      message.textContent = "Instagram-compatible MP4 ban rahi hai…";
+      const exportResponse = await fetch(apiUrl("/api/instagram-export"), {
+        method: "POST",
+        headers: {"Content-Type": blob.type || type},
+        body: blob
+      });
+      if (!exportResponse.ok) {
+        let detail = "Instagram-compatible video conversion failed.";
+        try { const errorData = await exportResponse.json(); detail = errorData.detail || detail; } catch (_) {}
+        throw new Error(detail);
+      }
+      blob = await exportResponse.blob();
+      if (!blob.size) throw new Error("Converted MP4 file empty hai. Please retry.");
+      const extension = "mp4";
       if (currentVideoUrl) URL.revokeObjectURL(currentVideoUrl);
       videoUrl = URL.createObjectURL(blob);
       currentVideoUrl = videoUrl;
@@ -1398,10 +1415,10 @@ aiButton.addEventListener("click", async () => {
       preview.hidden = false;
       const download = $("downloadVideo");
       download.href = videoUrl;
-      download.download = "trendradar-ai-video." + extension;
-      download.textContent = `⬇ Download ${extension.toUpperCase()} video`;
+      download.download = "trendradar-instagram-ready.mp4";
+      download.textContent = "⬇ Download Instagram-ready MP4";
       download.hidden = false;
-      message.textContent = `Video ready! ${Math.round(duration)} sec · ${extension.toUpperCase()} · ${Math.round(blob.size / 1024 / 1024 * 10) / 10} MB. Preview karo aur download kar lo.`;
+      message.textContent = `Instagram-ready video ready! ${Math.round(duration)} sec · MP4 (H.264 + AAC) · ${Math.round(blob.size / 1024 / 1024 * 10) / 10} MB. Preview karo aur Instagram par upload karo.`;
       preview.scrollIntoView({behavior:"smooth", block:"center"});
     } finally {
       if (audioContext && audioContext.state !== "closed") await audioContext.close().catch(() => {});
