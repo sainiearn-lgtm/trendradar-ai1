@@ -44,7 +44,6 @@ GEMINI_API_KEYS = [
 
 # Optional Pixabay API key for stock photos. Never log this value.
 PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY", "").strip()
-POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY", "").strip()
 CLOUDFLARE_ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip()
 CLOUDFLARE_API_TOKEN = os.getenv("CLOUDFLARE_API_TOKEN", "").strip()
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "").strip()
@@ -457,7 +456,6 @@ async def health():
         "gemini_keys_configured": len(GEMINI_API_KEYS),
         "gemini_model": GEMINI_MODEL,
         "youtube_configured": bool(YOUTUBE_API_KEY),
-        "pollinations_configured": bool(POLLINATIONS_API_KEY),
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -2054,48 +2052,7 @@ async def generate_ai_image(payload: dict):
             logger.exception("Cloudflare AI image generation failed")
             raise HTTPException(status_code=502, detail="Cloudflare AI image service is temporarily unavailable.") from exc
 
-    # Backward-compatible fallback for users who have not configured Cloudflare.
-    if not POLLINATIONS_API_KEY:
-        raise HTTPException(
-            status_code=503,
-            detail="Free AI image generation setup incomplete. Add CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN in Render."
-        )
 
-    url = f"https://gen.pollinations.ai/image/{quote(prompt, safe='')}"
-    params = {"model": "black-forest-labs/flux.1-schnell", "width": 576, "height": 1024}
-    headers = {"Authorization": f"Bearer {POLLINATIONS_API_KEY}", "Accept": "image/*"}
-
-    try:
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-            response = await client.get(url, params=params, headers=headers)
-
-        if response.status_code in {401, 403}:
-            raise HTTPException(status_code=502, detail="Pollinations API key was rejected. Check its Image permission in Render.")
-        if response.status_code == 402:
-            raise HTTPException(status_code=402, detail="Pollinations balance or key budget is insufficient. Configure Cloudflare Workers AI for the free-tier provider.")
-        if response.status_code == 429:
-            raise HTTPException(status_code=429, detail="Pollinations is rate-limiting image generation. Please wait and retry.")
-        response.raise_for_status()
-        content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
-        if not content_type.startswith("image/") or not response.content or len(response.content) > 15 * 1024 * 1024:
-            raise HTTPException(status_code=502, detail="Pollinations did not return a valid image. Please retry.")
-
-        encoded = base64.b64encode(response.content).decode("ascii")
-        return {
-            "status": "done",
-            "image_url": f"data:{content_type};base64,{encoded}",
-            "provider": "Pollinations AI",
-        }
-    except HTTPException:
-        raise
-    except httpx.TimeoutException as exc:
-        raise HTTPException(status_code=504, detail="AI image generation is taking too long. Please retry.") from exc
-    except httpx.HTTPStatusError as exc:
-        logger.warning("Pollinations image request failed with HTTP %s", exc.response.status_code)
-        raise HTTPException(status_code=502, detail="Pollinations image request failed. Please retry.") from exc
-    except Exception as exc:
-        logger.exception("Pollinations image generation failed")
-        raise HTTPException(status_code=502, detail="AI image service is temporarily unavailable.") from exc
 
 
 @app.get("/api/voice/voices")
