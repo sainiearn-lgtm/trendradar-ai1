@@ -406,8 +406,8 @@
         <div id="visualMessage" class="message" role="status" style="margin-top:12px"></div>
         <div id="visualScenes" class="grid" style="margin-top:16px"></div>
         <div class="video-maker">
-          <h3>🎬 Automatic Video Maker V1</h3>
-          <p>Selected images + generated Hindi voice + scene captions ko mila kar vertical video banao. Rendering tumhare browser mein hogi; Render server par video processing load nahi padega.</p>
+          <h3>🎬 Automatic Video Maker V2 · Motion + Subtitles</h3>
+          <p>Selected images par automatic zoom-in / zoom-out motion, narration-timed scene subtitles aur Hindi voice ke saath vertical video banao. Rendering tumhare browser mein hogi; Render server par video processing load nahi padega.</p>
           <div class="video-actions"><button id="createVideoBtn" class="btn" type="button">Create vertical video</button><span class="sub">9:16 · 720 × 1280 · browser rendering</span></div>
           <div id="videoMessage" class="message" role="status" style="margin-top:10px">Pehle voiceover generate karo aur har scene ke liye image select karo.</div>
           <video id="videoPreview" class="video-preview" controls playsinline hidden></video>
@@ -1188,48 +1188,85 @@ aiButton.addEventListener("click", async () => {
     }
   }
 
-  function drawVideoFrame(ctx, image, caption, sceneNumber, totalScenes, width, height) {
-    // Fill portrait frame with a softly blurred/darkened image background.
+  function getSubtitleChunk(caption, progress) {
+    const words = String(caption || "").trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return "";
+    const chunks = [];
+    for (let i = 0; i < words.length; i += 6) chunks.push(words.slice(i, i + 6).join(" "));
+    const index = Math.min(chunks.length - 1, Math.floor(Math.max(0, Math.min(.999, progress)) * chunks.length));
+    return chunks[index];
+  }
+
+  function drawVideoFrame(ctx, image, caption, sceneNumber, totalScenes, width, height, progress = 0, zoomIn = true) {
     ctx.fillStyle = "#101827";
     ctx.fillRect(0, 0, width, height);
-    const scale = Math.max(width / image.width, height / image.height);
-    const sw = width / scale, sh = height / scale;
-    const sx = (image.width - sw) / 2, sy = (image.height - sh) / 2;
-    ctx.drawImage(image, sx, sy, sw, sh, 0, 0, width, height);
-    ctx.fillStyle = "rgba(4,12,24,.30)";
+
+    // Ken Burns motion: alternate a gentle push-in and pull-out for every selected image.
+    const cover = Math.max(width / image.width, height / image.height);
+    const motion = zoomIn ? 1 + .12 * progress : 1.12 - .12 * progress;
+    const scale = cover * motion;
+    const drawWidth = image.width * scale;
+    const drawHeight = image.height * scale;
+    const drift = Math.sin(progress * Math.PI) * Math.min(18, width * .025) * (sceneNumber % 2 ? 1 : -1);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, width, height);
+    ctx.clip();
+    ctx.drawImage(image, (width - drawWidth) / 2 + drift, (height - drawHeight) / 2, drawWidth, drawHeight);
+    ctx.restore();
+
+    ctx.fillStyle = "rgba(4,12,24,.26)";
     ctx.fillRect(0, 0, width, height);
-    // Subtle top and bottom gradients keep the text legible.
-    const grad = ctx.createLinearGradient(0, height * .48, 0, height);
+    const grad = ctx.createLinearGradient(0, height * .45, 0, height);
     grad.addColorStop(0, "rgba(0,0,0,0)");
-    grad.addColorStop(1, "rgba(0,0,0,.82)");
+    grad.addColorStop(1, "rgba(0,0,0,.78)");
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
-    ctx.fillStyle = "rgba(7,143,145,.95)";
-    ctx.fillRect(42, 58, 240, 48);
+
+    ctx.fillStyle = "rgba(7,143,145,.96)";
+    ctx.fillRect(34, 48, 235, 46);
     ctx.fillStyle = "#fff";
-    ctx.font = "bold 25px Arial, sans-serif";
-    ctx.fillText("TRENDRADAR AI", 58, 90);
-    ctx.font = "600 22px Arial, sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,.88)";
-    ctx.fillText(`SCENE ${sceneNumber} / ${totalScenes}`, 48, height - 260);
-    const words = String(caption || "").trim().split(/\s+/);
-    const lines = [];
-    let line = "";
-    ctx.font = "bold 39px Arial, sans-serif";
-    for (const word of words) {
-      const test = line ? line + " " + word : word;
-      if (ctx.measureText(test).width > width - 96 && line) { lines.push(line); line = word; }
-      else line = test;
+    ctx.font = "bold 23px Arial, sans-serif";
+    ctx.fillText("TRENDRADAR AI", 49, 78);
+
+    // Scene counter remains small so the narration subtitle is the visual focus.
+    ctx.font = "600 18px Arial, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,.9)";
+    ctx.fillText(`SCENE ${sceneNumber} / ${totalScenes}`, 38, height - 150);
+
+    const subtitle = getSubtitleChunk(caption, progress);
+    if (subtitle) {
+      const maxWidth = width - 76;
+      ctx.font = "bold 32px 'Noto Sans Devanagari', 'Arial', sans-serif";
+      const words = subtitle.split(/\s+/);
+      const lines = [];
+      let line = "";
+      for (const word of words) {
+        const candidate = line ? line + " " + word : word;
+        if (ctx.measureText(candidate).width > maxWidth && line) {
+          lines.push(line);
+          line = word;
+        } else line = candidate;
+      }
+      if (line) lines.push(line);
+      const visible = lines.slice(0, 2);
+      const lineHeight = 44;
+      const boxHeight = visible.length * lineHeight + 34;
+      const boxY = height - 112 - boxHeight;
+      const boxWidth = Math.min(maxWidth + 22, Math.max(...visible.map(lineText => ctx.measureText(lineText).width)) + 44);
+      const boxX = (width - boxWidth) / 2;
+      ctx.fillStyle = "rgba(5,14,27,.84)";
+      ctx.beginPath();
+      ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 15);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.textAlign = "center";
+      ctx.shadowColor = "rgba(0,0,0,.55)";
+      ctx.shadowBlur = 5;
+      visible.forEach((lineText, index) => ctx.fillText(lineText, width / 2, boxY + 27 + (index + 1) * lineHeight - 8));
+      ctx.shadowBlur = 0;
+      ctx.textAlign = "left";
     }
-    if (line) lines.push(line);
-    const visible = lines.slice(0, 4);
-    const lineHeight = 53;
-    let y = height - 190 - (visible.length - 1) * lineHeight;
-    ctx.fillStyle = "#fff";
-    ctx.shadowColor = "rgba(0,0,0,.75)";
-    ctx.shadowBlur = 8;
-    visible.forEach(text => { ctx.fillText(text, 48, y); y += lineHeight; });
-    ctx.shadowBlur = 0;
   }
 
   async function createBrowserVideo() {
@@ -1267,11 +1304,27 @@ aiButton.addEventListener("click", async () => {
       const ctx = canvas.getContext("2d", { alpha: false });
       if (!ctx) throw new Error("Video canvas start nahi ho paya. Chrome mein dobara try karein.");
 
+      // Allocate voice duration to each storyboard scene by narration length.
+      // Multiple selected images within a scene share that scene's time evenly.
+      const timeline = storyboardScenes.map((scene, sceneIndex) => {
+        const items = loaded.filter(item => String(item.scene.scene) === String(scene.scene));
+        const narration = String(scene.narration || "").trim();
+        const wordCount = narration ? narration.split(/\s+/).filter(Boolean).length : 1;
+        return {scene, sceneIndex, items, narration, weight: Math.max(1, wordCount)};
+      }).filter(entry => entry.items.length);
+      const totalWeight = timeline.reduce((sum, entry) => sum + entry.weight, 0);
+      let cursor = 0;
+      timeline.forEach(entry => {
+        entry.start = cursor;
+        entry.duration = audioBuffer.duration * entry.weight / totalWeight;
+        cursor += entry.duration;
+        entry.end = cursor;
+      });
+      const firstEntry = timeline[0];
       // Paint a real frame BEFORE starting canvas capture. Some Android browsers
       // otherwise start recording the audio while the video track stays black.
-      drawVideoFrame(ctx, loaded[0].bitmap,
-        loaded[0].scene.narration || loaded[0].scene.visual,
-        1, loaded.length, canvas.width, canvas.height);
+      drawVideoFrame(ctx, firstEntry.items[0].bitmap, firstEntry.narration,
+        firstEntry.sceneIndex + 1, storyboardScenes.length, canvas.width, canvas.height, 0, true);
       const canvasStream = canvas.captureStream(30);
       const videoTrack = canvasStream.getVideoTracks()[0];
       if (!videoTrack) throw new Error("Browser ne video track create nahi ki. Chrome update karke retry karein.");
@@ -1286,24 +1339,24 @@ aiButton.addEventListener("click", async () => {
         recorder.onerror = () => reject(new Error("Browser video recording failed. Please retry."));
       });
       const duration = audioBuffer.duration;
-      const sceneDuration = duration / loaded.length;
       const start = performance.now();
       let renderTimer = null;
-      let lastFrameIndex = -1;
       const paint = () => {
         const elapsed = Math.min((performance.now() - start) / 1000, duration);
-        const index = Math.min(loaded.length - 1, Math.floor(elapsed / sceneDuration));
-        const item = loaded[index];
-        // Redraw when a scene changes, and keep refreshing frames between transitions.
-        // A timer is used instead of requestAnimationFrame because Android may pause RAF
-        // during media recording, leaving the first canvas frame in the finished video.
-        if (index !== lastFrameIndex || elapsed < duration) {
-          drawVideoFrame(ctx, item.bitmap, item.scene.narration || item.scene.visual, index + 1, loaded.length, canvas.width, canvas.height);
-          lastFrameIndex = index;
-          if (typeof videoTrack.requestFrame === "function") videoTrack.requestFrame();
-        }
+        const entry = timeline.find(item => elapsed < item.end) || timeline[timeline.length - 1];
+        const sceneProgress = Math.max(0, Math.min(1, (elapsed - entry.start) / entry.duration));
+        const imageDuration = entry.duration / entry.items.length;
+        const imageIndex = Math.min(entry.items.length - 1, Math.floor((elapsed - entry.start) / imageDuration));
+        const imageProgress = Math.max(0, Math.min(1,
+          ((elapsed - entry.start) - imageIndex * imageDuration) / imageDuration));
+        const selected = entry.items[imageIndex];
+        const globalImageIndex = timeline.slice(0, entry.sceneIndex).reduce((sum, item) => sum + item.items.length, 0) + imageIndex;
+        drawVideoFrame(ctx, selected.bitmap, entry.narration,
+          entry.sceneIndex + 1, storyboardScenes.length, canvas.width, canvas.height,
+          imageProgress, globalImageIndex % 2 === 0);
+        if (typeof videoTrack.requestFrame === "function") videoTrack.requestFrame();
         const percent = Math.min(99, Math.floor(elapsed / duration * 100));
-        message.textContent = `Video render ho raha hai… ${percent}%`;
+        message.textContent = `Video edit ho rahi hai… ${percent}% · Zoom motion + scene subtitles`;
         if (elapsed >= duration && renderTimer !== null) {
           clearInterval(renderTimer);
           renderTimer = null;
@@ -1319,9 +1372,11 @@ aiButton.addEventListener("click", async () => {
       if (renderTimer !== null) clearInterval(renderTimer);
       renderTimer = null;
       // Ensure the final scene is painted before stopping the recorder.
-      drawVideoFrame(ctx, loaded[loaded.length - 1].bitmap,
-        loaded[loaded.length - 1].scene.narration || loaded[loaded.length - 1].scene.visual,
-        loaded.length, loaded.length, canvas.width, canvas.height);
+      const lastEntry = timeline[timeline.length - 1];
+      const lastItem = lastEntry.items[lastEntry.items.length - 1];
+      drawVideoFrame(ctx, lastItem.bitmap, lastEntry.narration,
+        lastEntry.sceneIndex + 1, storyboardScenes.length, canvas.width, canvas.height, 1,
+        (loaded.length - 1) % 2 === 0);
       if (typeof videoTrack.requestFrame === "function") videoTrack.requestFrame();
       if (recorder.state !== "inactive") recorder.stop();
       await finished;
