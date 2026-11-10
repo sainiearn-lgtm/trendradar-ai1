@@ -671,7 +671,7 @@ async def viral_opportunities(region: str = "IN", limit: int = 10, category: str
     }
 
     for item in feed.get("trends", []):
-        creator_category = item.get("creator_category") or item.get("category") or infer_creator_category(item.get("title", ""), item.get("summary", ""))
+        creator_category = item.get("creator_category") or infer_creator_category(item.get("title", ""), item.get("summary", ""))
         if selected_category and creator_category.casefold() != selected_category:
             continue
         trend_score = max(0, min(100, int(item.get("trend_score", 0) or 0)))
