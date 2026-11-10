@@ -188,6 +188,8 @@
 
   
     /* Sidebar navigation: navigation-only, existing sections and workflows stay intact. */
+    .workspace-page { display:none; }
+    .workspace-page.active { display:block; }
     .sidebar-toggle {
       display:none; border:1px solid #dce5ef; background:#fff; color:#24364d;
       border-radius:10px; width:40px; height:40px; font-size:21px; line-height:1;
@@ -243,10 +245,10 @@
   <aside class="sidebar" id="sidebar" aria-label="Main navigation">
     <div class="sidebar-label">SAINIRADAR MENU</div>
     <button class="side-link active" type="button" data-target="pageTop"><span>⌂</span>Dashboard</button>
-    <button class="side-link" type="button" data-target="trendKeywords"><span>🔥</span>Trend Keywords</button>
-    <button class="side-link" type="button" data-target="creatorCategories"><span>🎯</span>Creator Categories</button>
-    <button class="side-link" type="button" data-target="opportunityFinder"><span>🚀</span>Opportunity Finder</button>
-    <button class="side-link" type="button" data-target="trendPredictions"><span>📈</span>Trend Predictions</button>
+    <button class="side-link" type="button" data-target="trendingNowPage"><span>🔥</span>Trending Right Now</button>
+    <button class="side-link" type="button" data-target="creatorCategories"><span>🎯</span>Choose Your Creator Category</button>
+    <button class="side-link" type="button" data-target="opportunityFinder"><span>🚀</span>Discover Your Next Content Opportunity</button>
+    <button class="side-link" type="button" data-target="trendPredictions"><span>📈</span>Trend Direction Lab</button>
     <button class="side-link" type="button" data-target="breakingNews"><span>📰</span>Breaking News Radar</button>
     <button class="side-link" type="button" data-target="videoResearch"><span>▶</span>Viral Video Research</button>
     <button class="side-link" type="button" data-target="studio"><span>✦</span>AI Script Studio</button>
@@ -260,6 +262,7 @@
       <div class="hero-byline">by <strong>TrendRadar AI</strong><span class="hero-spark">✦</span></div>
       <p class="lead hero-about">Spot rising trends, discover what your audience is talking about, and turn fresh ideas into publish-ready videos with AI-powered scripts, voiceovers and video creation — all in one place.</p>
     </section>
+    <section class="workspace-page" id="trendingNowPage">
     <section class="controls" id="trendKeywords" aria-label="Trend filters">
       <select id="region" class="field" aria-label="Select region">
         <option value="IN">🇮🇳 India</option><option value="US">🇺🇸 United States</option>
@@ -287,8 +290,9 @@
     </div>
     <section id="trendGrid" class="grid"><div class="empty">Loading public trend sources…</div></section>
     <p class="notice">Trend scores are indicative estimates based on public-source signals and recency. They are not official Google Trends or platform analytics. Availability and coverage vary by region and source.</p>
+    </section>
 
-    <section class="panel" id="creatorCategories">
+    <section class="panel workspace-page" id="creatorCategories">
       <div class="studio-head">
         <div><h2>🎯 Choose Your Creator Category</h2><p>Pick the niche you create videos for. Your topic ideas will be filtered to match.</p></div>
         <span class="tag">PERSONALIZE YOUR FEED</span>
@@ -299,7 +303,7 @@
       </div>
     </section>
 
-    <section class="panel" id="opportunityFinder">
+    <section class="panel workspace-page" id="opportunityFinder">
       <div class="studio-head">
         <div><h2>🚀 Discover Your Next Content Opportunity</h2><p>Find creator-ready topics by category using current interest, observed momentum, freshness and source coverage.</p></div>
         <span class="tag">BETA · DATA-BASED</span>
@@ -320,7 +324,7 @@
       <p class="notice">Category is inferred from topic text. Scores are evidence-based estimates, not viral predictions. Creator competition is not measured yet. Results reuse the existing trend feed; no separate polling or AI generation runs in the background.</p>
     </section>
 
-    <section class="panel" id="trendPredictions">
+    <section class="panel workspace-page" id="trendPredictions">
       <div class="studio-head">
         <div><h2>📈 Trend Direction Lab</h2><p>Recent snapshots se dekho kaun-se topics ki momentum badh rahi hai ya gir rahi hai.</p></div>
         <span class="tag">BETA · SNAPSHOT BASED</span>
@@ -1722,9 +1726,19 @@ Keep the reporting factual. Do not invent facts or unverified details.`;
     $("scriptMessage").className = "message";
   });
 
-  // Sidebar navigation only scrolls to existing sections; it does not hide or re-create content.
+  // Sidebar is the primary navigation; keep the dashboard uncluttered.
   const sidebar = $("sidebar");
   const sidebarToggle = $("sidebarToggle");
+  const workspacePages = ["trendingNowPage", "creatorCategories", "opportunityFinder", "trendPredictions"];
+  const showWorkspacePage = targetId => {
+    workspacePages.forEach(id => {
+      const page = $(id);
+      if (page) page.classList.toggle("active", id === targetId);
+    });
+    sidebar.querySelectorAll(".side-link").forEach(item => item.classList.toggle("active", item.dataset.target === targetId));
+    if (targetId !== "pageTop") $(targetId).scrollIntoView({behavior:"smooth", block:"start"});
+    else window.scrollTo({top:0, behavior:"smooth"});
+  };
   const closeSidebar = () => {
     document.body.classList.remove("sidebar-open");
     sidebarToggle.setAttribute("aria-expanded", "false");
