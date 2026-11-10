@@ -400,9 +400,9 @@
         <div class="image-mode-panel" style="margin-top:14px">
   <h3>Choose Image Source</h3>
   <label><input type="radio" name="imageMode" value="internet" checked> 🌐 Internet Images</label>
-  <label><input type="radio" name="imageMode" value="ai"> ✨ Free AI Images</label>
+  <label><input type="radio" name="imageMode" value="ai"> ✨ Free AI Images (Cloudflare)</label>
   <label><input type="radio" name="imageMode" value="upload"> 📁 Upload Own Images</label>
-  <p class="sub">AI image generation will be available for vertical Shorts (9:16).</p>
+  <p class="sub">AI images use Cloudflare FLUX free daily allowance when configured. Portrait composition is optimized for 9:16 Shorts.</p>
         </div>
         <div id="ownImageUpload" style="display:block;margin-top:12px">
   <p class="sub">Har scene mein AI / Internet image ke saath apni photos bhi upload kar sakte hain.</p>
@@ -896,13 +896,13 @@ aiButton.addEventListener("click", async () => {
   aiButton.textContent = "Generating...";
 
   try {
-    const prompt = `${scene.visual || scene.search_query || topic}, realistic cinematic vertical 9:16 image`;
+    const prompt = `${scene.visual || scene.search_query || topic}, realistic cinematic portrait photograph, vertical 9:16 composition, tall framing, subject centered, important details within the central vertical area, no text, no watermark`;
     const imageUrl = await generateAiImage(prompt);
 
     const item = {
       image_url: imageUrl,
       title: "AI Generated Image",
-      provider: "Pollinations AI"
+      provider: data.provider || "AI Generated"
     };
 
     const choice = document.createElement("button");
