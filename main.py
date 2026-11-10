@@ -561,12 +561,13 @@ async def viral_opportunities(region: str = "IN", limit: int = 10, category: str
     if limit < 1 or limit > 20:
         raise HTTPException(status_code=422, detail="Limit must be between 1 and 20.")
 
-    feed = await trends(region=region, q=None)
-    now = datetime.now(timezone.utc)
-    opportunities = []
     selected_category = clean_text(category, 40).casefold() if category else ""
     if selected_category and selected_category not in {value.casefold() for value in CREATOR_CATEGORIES}:
         raise HTTPException(status_code=422, detail="Unsupported category. Choose: " + ", ".join(CREATOR_CATEGORIES))
+
+    feed = await trends(region=region, q=None)
+    now = datetime.now(timezone.utc)
+    opportunities = []
 
     stage_momentum = {
         "emerging": 95, "rising": 85, "viral": 75, "new": 70,
