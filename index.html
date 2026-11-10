@@ -1387,7 +1387,7 @@ aiButton.addEventListener("click", async () => {
       audioSource.disconnect();
       combined.getTracks().forEach(track => track.stop());
       const type = mimeType.startsWith("video/mp4") ? "video/mp4" : "video/webm";
-      const extension = type === "video/mp4" ? "mp4" : "webm";
+      const extension = "mp4";
       let blob = new Blob(chunks, {type});
       if (!blob.size) throw new Error("Video file empty bani. Browser mein dobara try karein.");
 
@@ -1406,7 +1406,6 @@ aiButton.addEventListener("click", async () => {
       }
       blob = await exportResponse.blob();
       if (!blob.size) throw new Error("Converted MP4 file empty hai. Please retry.");
-      const extension = "mp4";
       if (currentVideoUrl) URL.revokeObjectURL(currentVideoUrl);
       videoUrl = URL.createObjectURL(blob);
       currentVideoUrl = videoUrl;
