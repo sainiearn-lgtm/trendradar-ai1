@@ -235,6 +235,71 @@ async def fetch_gdelt(client: httpx.AsyncClient, region: str) -> list[dict]:
     return rows
 
 
+CREATOR_CATEGORY_SEARCH_TERMS = {
+    "Entertainment": ["Bollywood", "Indian cinema", "South Indian movies", "actor actress film"],
+    "Sports": ["India cricket", "IPL", "Indian football", "badminton India"],
+    "Politics": ["India election", "Indian government", "Parliament India", "state politics India"],
+    "Technology": ["artificial intelligence India", "AI technology", "smartphone launch India", "technology news"],
+    "Business": ["India stock market", "Sensex Nifty", "Indian economy", "business startup India"],
+    "Gaming": ["India gaming", "BGMI", "Free Fire", "esports India"],
+    "Education": ["India exam result", "NEET JEE", "UPSC SSC", "education admission India"],
+    "Lifestyle": ["India health fitness", "food trends India", "travel India", "fashion lifestyle India"],
+    "Devotional": ["India temple news", "Hindu festival", "mandir", "bhajan devotional"],
+    "General": ["India latest news", "India weather", "India public issues", "India national news"],
+}
+
+
+async def fetch_creator_category_news(client: httpx.AsyncClient, region: str, category: str) -> list[dict]:
+    """Fetch a category-targeted recent-news feed; never fabricate fallback topics."""
+    import xml.etree.ElementTree as ET
+
+    if category not in CREATOR_CATEGORY_SEARCH_TERMS:
+        return []
+    region_settings = {
+        "IN": ("en-IN", "IN", "IN:en"),
+        "US": ("en-US", "US", "US:en"),
+        "GB": ("en-GB", "GB", "GB:en"),
+        "CA": ("en-CA", "CA", "CA:en"),
+        "AU": ("en-AU", "AU", "AU:en"),
+        "DE": ("de-DE", "DE", "DE:de"),
+    }
+    hl, gl, ceid = region_settings.get(region, region_settings["IN"])
+    terms = CREATOR_CATEGORY_SEARCH_TERMS[category]
+    query = "(" + " OR ".join(f'"{term}"' for term in terms) + ") when:7d"
+    response = await client.get(
+        "https://news.google.com/rss/search",
+        params={"q": query, "hl": hl, "gl": gl, "ceid": ceid},
+        headers={"User-Agent": "Mozilla/5.0 TrendRadarAI/1.0"},
+        timeout=REQUEST_TIMEOUT,
+    )
+    response.raise_for_status()
+    root = ET.fromstring(response.text)
+    rows = []
+    for item in root.findall(".//item")[:20]:
+        title = clean_text(item.findtext("title"), 180)
+        link = clean_text(item.findtext("link"), 1000)
+        published = parse_date(item.findtext("pubDate"))
+        description = clean_text(item.findtext("description"), 450)
+        if not title or not safe_http_url(link):
+            continue
+        rows.append({
+            "title": title,
+            "summary": description or f"Recent {category} coverage found by a category-specific news search.",
+            "source": "Google News category search",
+            "source_url": link,
+            "published_at": (published or datetime.now(timezone.utc)).isoformat(),
+            "category": category,
+            "creator_category": category,
+            "mentions": 1,
+            "popularity": 2,
+            "trend_score": score_item(published, 1, 1, 2),
+            "trend_stage": "new",
+            "growth_delta": None,
+            "why_trending": f"Found in the recent {category} category-specific news search.",
+        })
+    return rows
+
+
 async def fetch_youtube(client: httpx.AsyncClient, region: str) -> list[dict]:
     if not YOUTUBE_API_KEY:
         return []
@@ -298,7 +363,7 @@ def merge_and_rank(rows: list[dict], region: str) -> list[dict]:
         output.append({
             "id": str(abs(hash(key))), "title": best["title"], "summary": best["summary"],
             "source": " + ".join(sorted(sources)), "source_url": best["source_url"],
-            "region": region, "category": infer_creator_category(best["title"], best.get("summary", "")), "source_category": best.get("category") or "General",
+            "region": region, "category": best.get("creator_category") or infer_creator_category(best["title"], best.get("summary", "")), "creator_category": best.get("creator_category") or infer_creator_category(best["title"], best.get("summary", "")), "source_category": best.get("category") or "General",
             "trend_score": score_item(pub, len(group), len(sources), max(x.get("popularity", 0) for x in group)),
             "published_at": best.get("published_at"), "mentions": len(group),
             "related_news": list({
@@ -565,7 +630,38 @@ async def viral_opportunities(region: str = "IN", limit: int = 10, category: str
     if selected_category and selected_category not in {value.casefold() for value in CREATOR_CATEGORIES}:
         raise HTTPException(status_code=422, detail="Unsupported category. Choose: " + ", ".join(CREATOR_CATEGORIES))
 
+    region = region.upper()
     feed = await trends(region=region, q=None)
+    category_rows = []
+    category_research_status = "not_requested"
+    if selected_category:
+        category_name = next(value for value in CREATOR_CATEGORIES if value.casefold() == selected_category)
+        try:
+            async with httpx.AsyncClient(follow_redirects=True) as client:
+                category_rows = await fetch_creator_category_news(client, region, category_name)
+            category_research_status = "ok" if category_rows else "no_results"
+        except Exception as exc:
+            category_research_status = "unavailable"
+            logger.warning("Category-specific %s search failed for %s: %s", category_name, region, exc)
+
+        # Keep existing live trend signals, but supplement them with relevant
+        # recent category-search results. Explicit category metadata wins when
+        # a title also exists in the broad feed.
+        combined = {re.sub(r"[^a-z0-9]+", " ", row.get("title", "").casefold()).strip(): dict(row)
+                    for row in feed.get("trends", [])}
+        for row in category_rows:
+            key = re.sub(r"[^a-z0-9]+", " ", row.get("title", "").casefold()).strip()
+            if not key:
+                continue
+            if key in combined:
+                combined[key].update({
+                    "category": category_name,
+                    "creator_category": category_name,
+                    "category_search_match": True,
+                })
+            else:
+                combined[key] = row
+        feed = {**feed, "trends": list(combined.values())}
     now = datetime.now(timezone.utc)
     opportunities = []
 
@@ -575,7 +671,7 @@ async def viral_opportunities(region: str = "IN", limit: int = 10, category: str
     }
 
     for item in feed.get("trends", []):
-        creator_category = infer_creator_category(item.get("title", ""), item.get("summary", ""))
+        creator_category = item.get("creator_category") or item.get("category") or infer_creator_category(item.get("title", ""), item.get("summary", ""))
         if selected_category and creator_category.casefold() != selected_category:
             continue
         trend_score = max(0, min(100, int(item.get("trend_score", 0) or 0)))
@@ -642,9 +738,11 @@ async def viral_opportunities(region: str = "IN", limit: int = 10, category: str
         "region": feed.get("region", region.upper()),
         "selected_category": category or "All",
         "available_categories": CREATOR_CATEGORIES,
+        "category_research": category_research_status,
+        "category_research_count": len(category_rows),
         "count": min(limit, len(opportunities)),
         "opportunities": opportunities[:limit],
-        "methodology": "Category-filtered estimate based on current TrendRadar score (40%), observed snapshot momentum (30%), freshness (20%) and source coverage (10%). Category is inferred from topic title/summary. This is not a prediction of virality.",
+        "methodology": "Category-specific recent Google News search is combined with existing public trend signals. Opportunity estimate uses current TrendRadar score (40%), observed snapshot momentum (30%), freshness (20%) and source coverage (10%). Scores are not predictions of virality.",
         "limitations": [
             "Creator competition is not measured because reliable competitor data is not connected.",
             "Scores are estimates from available trend feeds, not guaranteed reach or views.",
