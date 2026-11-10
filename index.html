@@ -188,8 +188,8 @@
 
   
     /* Sidebar navigation: navigation-only, existing sections and workflows stay intact. */
-    .workspace-page { display:none; }
-    .workspace-page.active { display:block; }
+    .workspace-page { display:none !important; }
+    .workspace-page.active { display:block !important; }
     .sidebar-toggle {
       display:none; border:1px solid #dce5ef; background:#fff; color:#24364d;
       border-radius:10px; width:40px; height:40px; font-size:21px; line-height:1;
@@ -1752,13 +1752,21 @@ Keep the reporting factual. Do not invent facts or unverified details.`;
   $("sidebarBackdrop").addEventListener("click", closeSidebar);
   sidebar.querySelectorAll("[data-target]").forEach(link => {
     link.addEventListener("click", () => {
-      const target = $(link.dataset.target);
-      if (target && target.id === "breakingNews") {
-        target.hidden = false;
-        if (!newsLoaded) loadHindiNews();
+      const targetId = link.dataset.target;
+      const target = $(targetId);
+      if (workspacePages.includes(targetId)) {
+        showWorkspacePage(targetId);
+        if (targetId === "trendingNowPage" && !currentTrends.length) loadTrends();
+      } else {
+        workspacePages.forEach(id => $(id)?.classList.remove("active"));
+        if (targetId === "pageTop") window.scrollTo({top:0, behavior:"smooth"});
+        if (target && target.id === "breakingNews") {
+          target.hidden = false;
+          if (!newsLoaded) loadHindiNews();
+        }
+        if (target && targetId !== "pageTop") target.scrollIntoView({behavior:"smooth", block:"start"});
+        sidebar.querySelectorAll(".side-link").forEach(item => item.classList.toggle("active", item === link));
       }
-      if (target) target.scrollIntoView({behavior:"smooth", block:"start"});
-      sidebar.querySelectorAll(".side-link").forEach(item => item.classList.toggle("active", item === link));
       closeSidebar();
     });
   });
