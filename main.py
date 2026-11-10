@@ -1427,35 +1427,66 @@ async def proxy_pixabay_image(url: str):
                 if not approved_image_url(current_url):
                     raise HTTPException(status_code=400, detail="Image redirect host is not allowed.")
 
-                async with client.stream(
-                    "GET", current_url,
-                    headers={"User-Agent": "Mozilla/5.0 TrendRadarAI"},
-                ) as resp:
-                    if resp.is_redirect:
-                        location = resp.headers.get("location")
-                        if not location or redirect_count >= 5:
-                            raise HTTPException(status_code=502, detail="Image source redirected too many times.")
-                        current_url = urljoin(current_url, location)
-                        continue
+                source_host = (urlparse(current_url).hostname or "").lower()
+                source_headers = {
+                    # Identify the app instead of impersonating a generic browser.
+                    "User-Agent": "TrendRadarAI/1.0 (+https://trendradar-ai1.onrender.com; image preview)",
+                    "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+                }
+                if source_host.endswith("wikimedia.org"):
+                    source_headers["Referer"] = "https://commons.wikimedia.org/"
+                elif source_host.endswith("openverse.org"):
+                    source_headers["Referer"] = "https://openverse.org/"
 
-                    resp.raise_for_status()
-                    content_type = resp.headers.get("content-type", "image/jpeg").split(";")[0].lower()
-                    if not content_type.startswith("image/"):
-                        raise HTTPException(status_code=415, detail="Image source did not return an image.")
+                # Openverse thumbnails occasionally return 424 while their
+                # upstream original is unavailable. Retry only transient failures.
+                for attempt in range(3):
+                    try:
+                        async with client.stream(
+                            "GET", current_url, headers=source_headers,
+                        ) as resp:
+                            if resp.is_redirect:
+                                location = resp.headers.get("location")
+                                if not location or redirect_count >= 5:
+                                    raise HTTPException(status_code=502, detail="Image source redirected too many times.")
+                                current_url = urljoin(current_url, location)
+                                break
 
-                    content_length = resp.headers.get("content-length")
-                    if content_length:
-                        try:
-                            if int(content_length) > max_bytes:
-                                raise HTTPException(status_code=415, detail="Image is too large.")
-                        except ValueError:
-                            pass
+                            if resp.status_code in {424, 429, 500, 502, 503, 504} and attempt < 2:
+                                await asyncio.sleep(0.4 * (attempt + 1))
+                                continue
+                            resp.raise_for_status()
+                            content_type = resp.headers.get("content-type", "image/jpeg").split(";")[0].lower()
+                            if not content_type.startswith("image/"):
+                                raise HTTPException(status_code=415, detail="Image source did not return an image.")
 
-                    async for chunk in resp.aiter_bytes():
-                        image_bytes.extend(chunk)
-                        if len(image_bytes) > max_bytes:
-                            raise HTTPException(status_code=415, detail="Image is too large.")
+                            content_length = resp.headers.get("content-length")
+                            if content_length:
+                                try:
+                                    if int(content_length) > max_bytes:
+                                        raise HTTPException(status_code=415, detail="Image is too large.")
+                                except ValueError:
+                                    pass
+
+                            async for chunk in resp.aiter_bytes():
+                                image_bytes.extend(chunk)
+                                if len(image_bytes) > max_bytes:
+                                    raise HTTPException(status_code=415, detail="Image is too large.")
+                            break
+                    except (httpx.TimeoutException, httpx.NetworkError):
+                        if attempt >= 2:
+                            raise
+                        await asyncio.sleep(0.4 * (attempt + 1))
+                else:
+                    raise HTTPException(status_code=502, detail="Image source could not be reached.")
+                if image_bytes:
                     break
+                # A redirect updates current_url; validate and fetch it on next pass.
+                if current_url != url and redirect_count < 5:
+                    continue
+                if resp.status_code in {424, 429, 500, 502, 503, 504}:
+                    raise HTTPException(status_code=502, detail="Image source is temporarily unavailable.")
+                break
             else:
                 raise HTTPException(status_code=502, detail="Image source redirected too many times.")
 
