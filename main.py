@@ -9,7 +9,6 @@ import os
 import re
 import time
 import subprocess
-import shutil
 import sys
 import tempfile
 import wave
@@ -2106,62 +2105,3 @@ async def generate_voice(payload: VoiceRequest):
             detail="Indic Tiny TTS generation failed. Check Render logs; the first request may be downloading the model.",
         ) from exc
 
-
-
-@app.post("/api/instagram-export")
-async def instagram_export(request: Request):
-    """Normalize browser-recorded videos to Instagram-friendly MP4 (H.264 + AAC)."""
-    raw = await request.body()
-    if not raw:
-        raise HTTPException(status_code=400, detail="Video data is empty. Please record again.")
-    if len(raw) > 200 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Video is larger than 200 MB. Please shorten it and retry.")
-
-    ffmpeg = shutil.which("ffmpeg")
-    if not ffmpeg:
-        raise HTTPException(status_code=503, detail="Video compatibility converter is not installed on the server yet.")
-
-    content_type = request.headers.get("content-type", "video/webm").split(";", 1)[0].strip().lower()
-    input_suffix = ".mp4" if content_type == "video/mp4" else ".webm"
-
-    def convert_video() -> bytes:
-        with tempfile.TemporaryDirectory(prefix="trendradar-export-") as workdir:
-            source = Path(workdir) / ("input" + input_suffix)
-            output = Path(workdir) / "instagram-ready.mp4"
-            source.write_bytes(raw)
-            command = [
-                ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
-                "-i", str(source),
-                "-map", "0:v:0", "-map", "0:a:0?",
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
-                "-pix_fmt", "yuv420p", "-r", "30",
-                "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
-                "-movflags", "+faststart", "-max_muxing_queue_size", "1024",
-                str(output),
-            ]
-            result = subprocess.run(command, capture_output=True, text=True, timeout=300)
-            if result.returncode != 0 or not output.exists() or output.stat().st_size == 0:
-                logger.error("Instagram video conversion failed: %s", (result.stderr or "")[-1500:])
-                raise RuntimeError("Video conversion failed. Please retry with a shorter video.")
-            return output.read_bytes()
-
-    try:
-        converted = await asyncio.to_thread(convert_video)
-    except subprocess.TimeoutExpired as exc:
-        raise HTTPException(status_code=504, detail="Video conversion took too long. Please try a shorter video.") from exc
-    except RuntimeError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except Exception as exc:
-        logger.exception("Instagram-compatible video export failed")
-        raise HTTPException(status_code=500, detail="Could not prepare the Instagram-compatible video.") from exc
-
-    return Response(
-        content=converted,
-        media_type="video/mp4",
-        headers={
-            "Content-Disposition": 'attachment; filename="trendradar-instagram-ready.mp4"',
-            "Cache-Control": "no-store",
-            "X-Video-Codec": "H.264",
-            "X-Audio-Codec": "AAC",
-        },
-    )
