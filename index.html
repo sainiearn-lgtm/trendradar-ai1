@@ -244,7 +244,7 @@
     <div class="sidebar-label">SAINIRADAR MENU</div>
     <button class="side-link active" type="button" data-target="pageTop"><span>⌂</span>Dashboard</button>
     <button class="side-link" type="button" data-target="trendKeywords"><span>🔥</span>Trend Keywords</button>
-    <button class="side-link" type="button" data-target="opportunityFinder"><span>🚀</span>Opportunity Finder</button>
+    <button class="side-link" type="button" data-target="creatorCategories"><span>🎯</span>Creator Categories</button>\n    <button class="side-link" type="button" data-target="opportunityFinder"><span>🚀</span>Opportunity Finder</button>
     <button class="side-link" type="button" data-target="trendPredictions"><span>📈</span>Trend Predictions</button>
     <button class="side-link" type="button" data-target="breakingNews"><span>📰</span>Latest News</button>
     <button class="side-link" type="button" data-target="videoResearch"><span>▶</span>Viral Video Research</button>
@@ -287,14 +287,26 @@
     <section id="trendGrid" class="grid"><div class="empty">Loading public trend sources…</div></section>
     <p class="notice">Trend scores are indicative estimates based on public-source signals and recency. They are not official Google Trends or platform analytics. Availability and coverage vary by region and source.</p>
 
+    <section class="panel" id="creatorCategories">
+      <div class="studio-head">
+        <div><h2>🎯 Choose Your Creator Category</h2><p>Pick the niche you create videos for. Your topic ideas will be filtered to match.</p></div>
+        <span class="tag">PERSONALIZE YOUR FEED</span>
+      </div>
+      <div class="opportunity-toolbar">
+        <label class="sub" for="opportunityCategory">Show topics for</label>
+        <div class="opportunity-actions"><select id="opportunityCategory" aria-label="Filter creator topics by category"><option value="">All categories</option><option>Entertainment</option><option>Sports</option><option>Politics</option><option>Technology</option><option>Business</option><option>Gaming</option><option>Education</option><option>Lifestyle</option><option>Devotional</option><option>General</option></select></div>
+      </div>
+    </section>
+
     <section class="panel" id="opportunityFinder">
       <div class="studio-head">
-        <div><h2>🚀 Discover Your Next Content Opportunity</h2><p>Find promising topics using current interest, momentum, freshness and source coverage.</p></div>
+        <div><h2>🚀 Discover Your Next Content Opportunity</h2><p>Find creator-ready topics by category using current interest, observed momentum, freshness and source coverage.</p></div>
         <span class="tag">BETA · DATA-BASED</span>
       </div>
       <div class="opportunity-toolbar">
         <div class="sub">Selected region: <strong id="opportunityRegion">India</strong> · Runs only when you ask</div>
         <div class="opportunity-actions">
+          
           <select id="opportunityLimit" aria-label="Number of opportunities to show">
             <option value="5">Top 5</option><option value="10" selected>Top 10</option>
             <option value="15">Top 15</option><option value="20">Top 20</option>
@@ -304,7 +316,7 @@
       </div>
       <div id="opportunityMessage" class="message" role="status" style="margin-top:12px">Tap “Find opportunities” to analyse the currently available trend feed.</div>
       <div id="opportunityResults" class="opportunity-grid"></div>
-      <p class="notice">Opportunity scores are estimates, not viral predictions. Creator competition is not measured yet. Results reuse the existing trend feed; no separate polling or AI generation runs in the background.</p>
+      <p class="notice">Category is inferred from topic text. Scores are evidence-based estimates, not viral predictions. Creator competition is not measured yet. Results reuse the existing trend feed; no separate polling or AI generation runs in the background.</p>
     </section>
 
     <section class="panel" id="trendPredictions">
@@ -613,7 +625,8 @@
     try {
       const params = new URLSearchParams({
         region: $("region").value,
-        limit: "20"
+        limit: "20",
+        category: $("opportunityCategory").value
       });
       const data = await readJson(await fetch(apiUrl("/api/opportunities?" + params.toString()), {
         headers: {"Accept":"application/json"}
@@ -1597,6 +1610,7 @@ Keep the reporting factual. Do not invent facts or unverified details.`;
   $("opportunityRefreshBtn").addEventListener("click", loadOpportunities);
   $("predictionRefreshBtn").addEventListener("click", loadPredictions);
   $("opportunityLimit").addEventListener("change", () => renderOpportunities(currentOpportunities));
+  $("opportunityCategory").addEventListener("change", loadOpportunities);
   $("region").addEventListener("change", () => {
     $("opportunityRegion").textContent = $("region").selectedOptions[0]?.textContent || $("region").value;
     // Never leave results from the previous region visible under the newly selected region.

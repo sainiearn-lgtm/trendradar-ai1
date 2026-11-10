@@ -60,6 +60,38 @@ class OpportunityFinderTests(unittest.TestCase):
         self.assertEqual(response.status_code, 422)
         trends_mock.assert_not_called()
 
+    def test_category_filter_returns_only_matching_creator_topics(self):
+        category_feed = {
+            **self.feed,
+            "trends": [
+                {
+                    **self.feed["trends"][0],
+                    "title": "Pawan Kalyan movie update",
+                    "summary": "Entertainment news",
+                },
+                {
+                    **self.feed["trends"][1],
+                    "title": "India cricket match update",
+                    "summary": "Sports news",
+                },
+            ],
+        }
+        with patch.object(main, "trends", return_value=category_feed):
+            response = self.client.get("/api/opportunities?category=Entertainment")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["selected_category"], "Entertainment")
+        self.assertEqual(len(body["opportunities"]), 1)
+        self.assertEqual(body["opportunities"][0]["title"], "Pawan Kalyan movie update")
+
+    def test_unknown_category_is_rejected(self):
+        with patch.object(main, "trends", return_value=self.feed) as trends_mock:
+            response = self.client.get("/api/opportunities?category=MadeUp")
+
+        self.assertEqual(response.status_code, 422)
+        trends_mock.assert_not_called()
+
     def test_empty_feed_returns_empty_opportunities(self):
         empty_feed = {**self.feed, "trends": [], "count": 0}
         with patch.object(main, "trends", return_value=empty_feed):
