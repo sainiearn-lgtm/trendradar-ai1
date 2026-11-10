@@ -1387,38 +1387,9 @@ aiButton.addEventListener("click", async () => {
       audioSource.disconnect();
       combined.getTracks().forEach(track => track.stop());
       const type = mimeType.startsWith("video/mp4") ? "video/mp4" : "video/webm";
-      const extension = "mp4";
-      let blob = new Blob(chunks, {type});
+      const extension = type === "video/mp4" ? "mp4" : "webm";
+      const blob = new Blob(chunks, {type});
       if (!blob.size) throw new Error("Video file empty bani. Browser mein dobara try karein.");
-
-      // Best-effort Instagram conversion. Never block video creation if the
-      // server converter is unavailable: keep the original browser recording.
-      let exportNote = "";
-      try {
-        message.textContent = "Instagram-compatible MP4 ban rahi hai…";
-        const exportResponse = await fetch(apiUrl("/api/instagram-export"), {
-          method: "POST",
-          headers: {"Content-Type": blob.type || type},
-          body: blob
-        });
-        if (exportResponse.ok) {
-          const convertedBlob = await exportResponse.blob();
-          if (convertedBlob.size) {
-            blob = convertedBlob;
-            exportNote = "MP4 (H.264 + AAC)";
-          } else {
-            exportNote = "Original " + extension.toUpperCase() + " (converter returned empty file)";
-          }
-        } else {
-          exportNote = "Original " + extension.toUpperCase() + " (MP4 conversion unavailable)";
-          console.warn("Instagram conversion unavailable:", exportResponse.status);
-        }
-      } catch (conversionError) {
-        exportNote = "Original " + extension.toUpperCase() + " (MP4 conversion unavailable)";
-        console.warn("Instagram conversion skipped; preserving original video:", conversionError);
-      }
-      const finalIsMp4 = blob.type.toLowerCase().includes("mp4");
-      const finalExtension = finalIsMp4 ? "mp4" : "webm";
       if (currentVideoUrl) URL.revokeObjectURL(currentVideoUrl);
       videoUrl = URL.createObjectURL(blob);
       currentVideoUrl = videoUrl;
@@ -1427,10 +1398,10 @@ aiButton.addEventListener("click", async () => {
       preview.hidden = false;
       const download = $("downloadVideo");
       download.href = videoUrl;
-      download.download = "trendradar-ai-video." + finalExtension;
-      download.textContent = "⬇ Download " + finalExtension.toUpperCase() + " video";
+      download.download = "trendradar-ai-video." + extension;
+      download.textContent = `⬇ Download ${extension.toUpperCase()} video`;
       download.hidden = false;
-      message.textContent = `Video ready! ${Math.round(duration)} sec · ${exportNote} · ${Math.round(blob.size / 1024 / 1024 * 10) / 10} MB. Preview karo aur download kar lo.`;
+      message.textContent = `Video ready! ${Math.round(duration)} sec · ${extension.toUpperCase()} · ${Math.round(blob.size / 1024 / 1024 * 10) / 10} MB. Preview karo aur download kar lo.`;
       preview.scrollIntoView({behavior:"smooth", block:"center"});
     } finally {
       if (audioContext && audioContext.state !== "closed") await audioContext.close().catch(() => {});
