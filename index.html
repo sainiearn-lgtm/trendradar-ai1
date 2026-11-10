@@ -1197,7 +1197,7 @@ aiButton.addEventListener("click", async () => {
     return chunks[index];
   }
 
-  function drawVideoFrame(ctx, image, caption, sceneNumber, totalScenes, width, height, progress = 0, zoomIn = true) {
+  function drawVideoFrame(ctx, image, caption, sceneNumber, totalScenes, width, height, progress = 0, zoomIn = true, subtitleProgress = progress) {
     ctx.fillStyle = "#101827";
     ctx.fillRect(0, 0, width, height);
 
@@ -1234,7 +1234,7 @@ aiButton.addEventListener("click", async () => {
     ctx.fillStyle = "rgba(255,255,255,.9)";
     ctx.fillText(`SCENE ${sceneNumber} / ${totalScenes}`, 38, height - 150);
 
-    const subtitle = getSubtitleChunk(caption, progress);
+    const subtitle = getSubtitleChunk(caption, subtitleProgress);
     if (subtitle) {
       const maxWidth = width - 76;
       ctx.font = "bold 32px 'Noto Sans Devanagari', 'Arial', sans-serif";
@@ -1353,7 +1353,7 @@ aiButton.addEventListener("click", async () => {
         const globalImageIndex = timeline.slice(0, entry.sceneIndex).reduce((sum, item) => sum + item.items.length, 0) + imageIndex;
         drawVideoFrame(ctx, selected.bitmap, entry.narration,
           entry.sceneIndex + 1, storyboardScenes.length, canvas.width, canvas.height,
-          imageProgress, globalImageIndex % 2 === 0);
+          imageProgress, globalImageIndex % 2 === 0, sceneProgress);
         if (typeof videoTrack.requestFrame === "function") videoTrack.requestFrame();
         const percent = Math.min(99, Math.floor(elapsed / duration * 100));
         message.textContent = `Video edit ho rahi hai… ${percent}% · Zoom motion + scene subtitles`;
@@ -1376,7 +1376,7 @@ aiButton.addEventListener("click", async () => {
       const lastItem = lastEntry.items[lastEntry.items.length - 1];
       drawVideoFrame(ctx, lastItem.bitmap, lastEntry.narration,
         lastEntry.sceneIndex + 1, storyboardScenes.length, canvas.width, canvas.height, 1,
-        (loaded.length - 1) % 2 === 0);
+        (loaded.length - 1) % 2 === 0, 1);
       if (typeof videoTrack.requestFrame === "function") videoTrack.requestFrame();
       if (recorder.state !== "inactive") recorder.stop();
       await finished;
