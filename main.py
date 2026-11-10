@@ -261,6 +261,29 @@ async def fetch_youtube(client: httpx.AsyncClient, region: str) -> list[dict]:
     return rows
 
 
+
+CREATOR_CATEGORIES = ["Entertainment", "Sports", "Politics", "Technology", "Business", "Gaming", "Education", "Lifestyle", "Devotional", "General"]
+
+
+def infer_creator_category(title: str, summary: str = "") -> str:
+    """Classify topics using transparent keywords from the available feed text."""
+    text = f"{title} {summary}".casefold()
+    rules = {
+        "Sports": ["cricket", "ipl", "odi", "t20", "football", "soccer", "tennis", "hockey", "wrestling", "badminton", "fifa", "icc", "bcci", "world cup", "olympic", "match"],
+        "Politics": ["election", "minister", "parliament", "lok sabha", "rajya sabha", "bjp", "congress", "modi", "government", "chief minister", "political", "vote", "poll"],
+        "Technology": ["artificial intelligence", "chatgpt", "gemini", "openai", "smartphone", "iphone", "android", "technology", "tech", "software", "cyber", "robot", "google", "microsoft", "apple"],
+        "Gaming": ["gaming", "gameplay", "gta", "minecraft", "pubg", "bgmi", "free fire", "fortnite", "playstation", "xbox", "esports"],
+        "Business": ["stock", "sensex", "nifty", "share market", "business", "startup", "company", "ipo", "economy", "rupee", "bank", "finance", "investor"],
+        "Devotional": ["temple", "mandir", "aarti", "bhajan", "hanuman", "krishna", "shiv", "mahadev", "durga", "puja", "diwali", "navratri"],
+        "Education": ["exam", "result", "admit card", "neet", "jee", "upsc", "ssc", "school", "college", "university", "education", "student"],
+        "Lifestyle": ["health", "fitness", "food", "recipe", "fashion", "beauty", "travel", "relationship", "wellness"],
+        "Entertainment": ["movie", "film", "cinema", "actor", "actress", "celebrity", "bollywood", "hollywood", "tollywood", "pawan kalyan", "prabhas", "salman", "shah rukh", "box office", "trailer", "teaser", "song", "web series", "tv show"],
+    }
+    for category, keywords in rules.items():
+        if any(keyword in text for keyword in keywords):
+            return category
+    return "General"
+
 def merge_and_rank(rows: list[dict], region: str) -> list[dict]:
     groups: dict[str, list[dict]] = {}
     for row in rows:
@@ -275,7 +298,7 @@ def merge_and_rank(rows: list[dict], region: str) -> list[dict]:
         output.append({
             "id": str(abs(hash(key))), "title": best["title"], "summary": best["summary"],
             "source": " + ".join(sorted(sources)), "source_url": best["source_url"],
-            "region": region, "category": best.get("category") or "General",
+            "region": region, "category": infer_creator_category(best["title"], best.get("summary", "")), "source_category": best.get("category") or "General",
             "trend_score": score_item(pub, len(group), len(sources), max(x.get("popularity", 0) for x in group)),
             "published_at": best.get("published_at"), "mentions": len(group),
             "related_news": list({
@@ -528,7 +551,7 @@ async def trend_predictions(region: str = "IN", limit: int = 10):
 
 
 @app.get("/api/opportunities")
-async def viral_opportunities(region: str = "IN", limit: int = 10):
+async def viral_opportunities(region: str = "IN", limit: int = 10, category: str | None = None):
     """Rank existing cached trends by transparent, data-backed content opportunity signals.
 
     This endpoint reuses /api/trends; it does not add feed requests or background work.
@@ -541,6 +564,9 @@ async def viral_opportunities(region: str = "IN", limit: int = 10):
     feed = await trends(region=region, q=None)
     now = datetime.now(timezone.utc)
     opportunities = []
+    selected_category = clean_text(category, 40).casefold() if category else ""
+    if selected_category and selected_category not in {value.casefold() for value in CREATOR_CATEGORIES}:
+        raise HTTPException(status_code=422, detail=f"Unsupported category. Choose: {\", \".join(CREATOR_CATEGORIES)}")
 
     stage_momentum = {
         "emerging": 95, "rising": 85, "viral": 75, "new": 70,
@@ -548,6 +574,9 @@ async def viral_opportunities(region: str = "IN", limit: int = 10):
     }
 
     for item in feed.get("trends", []):
+        creator_category = infer_creator_category(item.get("title", ""), item.get("summary", ""))
+        if selected_category and creator_category.casefold() != selected_category:
+            continue
         trend_score = max(0, min(100, int(item.get("trend_score", 0) or 0)))
         stage = str(item.get("trend_stage") or "collecting").lower()
         delta = item.get("growth_delta")
@@ -610,9 +639,11 @@ async def viral_opportunities(region: str = "IN", limit: int = 10):
     )
     return {
         "region": feed.get("region", region.upper()),
+        "selected_category": category or "All",
+        "available_categories": CREATOR_CATEGORIES,
         "count": min(limit, len(opportunities)),
         "opportunities": opportunities[:limit],
-        "methodology": "Estimate based on current trend score (40%), momentum (30%), freshness (20%) and source coverage (10%). This is not a prediction of virality.",
+        "methodology": "Category-filtered estimate based on current TrendRadar score (40%), observed snapshot momentum (30%), freshness (20%) and source coverage (10%). Category is inferred from topic title/summary. This is not a prediction of virality.",
         "limitations": [
             "Creator competition is not measured because reliable competitor data is not connected.",
             "Scores are estimates from available trend feeds, not guaranteed reach or views.",
