@@ -1423,45 +1423,46 @@ aiButton.addEventListener("click", async () => {
   let currentVideoUrl = null;
 
   function getNarrationText(fullScript) {
-    // Extract only the complete narration. Opening Hook is a separate preview section and must not be read again.
+    // Audio order: Catchy Title -> Complete Video Script (includes its opening hook) -> Call to Action.
+    // The standalone Opening Hook preview is deliberately excluded to prevent duplicate narration.
     const lines = String(fullScript || "").replace(/\r/g, "").split("\n");
-    const startHeading = /^\s*(?:\d+\s*[.)]\s*)?(?:\*\*)?(?:COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCRIPT\s+NARRATION)\b.*$/i;
-    const stopHeading = /^\s*(?:\d+\s*[.)]\s*)?(?:\*\*)?(?:SCENE[- ]BY[- ]SCENE\s+VISUAL|VISUAL\s+SUGGESTIONS|VISUAL\s+DIRECTION|THUMBNAIL\s+TEXT|VIDEO\s+DESCRIPTION|HASHTAGS|CALL\s+TO\s+ACTION|TAGS)\b/i;
-    const labelOnly = /^(?:\*\*)?(?:CATCHY\s+TITLE|TITLE|OPENING\s+HOOK|HOOK|INTRO|OUTRO|COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCENE\s*\d+|VOICEOVER|NARRATOR|VISUAL|CAMERA|SHOT|SFX|BGM|ON[- ]SCREEN\s+TEXT)\b.*$/i;
-    let active = false;
-    let foundSection = false;
-    const kept = [];
+    const heading = /^\s*(?:\d+\s*[.)]\s*)?(?:\*\*|__)?\s*(CATCHY\s+TITLE|TITLE|OPENING\s+HOOK|HOOK|INTRO|COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCRIPT\s+NARRATION|SCENE[- ]BY[- ]SCENE\s+VISUAL(?:\s+SUGGESTIONS)?|VISUAL\s+SUGGESTIONS|VISUAL\s+DIRECTION|THUMBNAIL\s+TEXT|VIDEO\s+DESCRIPTION|HASHTAGS|CALL\s+TO\s+ACTION|TAGS)\b.*$/i;
+    const wanted = [
+      { name: "title", re: /^\s*(?:\d+\s*[.)]\s*)?(?:\*\*|__)?\s*(?:CATCHY\s+TITLE|TITLE)\b/i },
+      { name: "script", re: /^\s*(?:\d+\s*[.)]\s*)?(?:\*\*|__)?\s*(?:COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCRIPT\s+NARRATION)\b/i },
+      { name: "cta", re: /^\s*(?:\d+\s*[.)]\s*)?(?:\*\*|__)?\s*CALL\s+TO\s+ACTION\b/i }
+    ];
+    const sections = { title: [], script: [], cta: [] };
+    let current = "";
+    let foundScript = false;
     for (const raw of lines) {
       const line = raw.trim();
-      if (!active && startHeading.test(line)) {
-        active = true;
-        foundSection = true;
+      const match = heading.exec(line);
+      if (match) {
+        const key = wanted.find(item => item.re.test(line));
+        current = key ? key.name : "";
+        if (current === "script") foundScript = true;
         continue;
       }
-      if (active && stopHeading.test(line)) break;
-      if (!active) continue;
-      if (!line || labelOnly.test(line)) continue;
-      if (/^\[.*\]$/.test(line) || /^\(.*(?:music|sound|camera|visual|cut to|show|zoom|fade). *\)$/i.test(line)) continue;
+      if (!current || !line) continue;
+      if (/^\[.*\]$/.test(line) || /^\(.*(?:music|sound|camera|visual|cut to|show|zoom|fade).*\)$/i.test(line)) continue;
       const cleaned = line
         .replace(/^\s*(?:[-*•]+\s*)?(?:\d{1,2}:\d{2}(?::\d{2})?\s*[-–—:]?\s*)/, "")
         .replace(/^\s*(?:\*\*|__)?(?:NARRATOR|VOICEOVER|VO)\s*[:：-]\s*/i, "")
         .replace(/\*\*/g, "")
         .replace(/^[-*•]+\s*/, "")
         .trim();
-      if (cleaned && /[\u0900-\u097F]/.test(cleaned)) kept.push(cleaned);
+      if (cleaned && /[\u0900-\u097F]/.test(cleaned)) sections[current].push(cleaned);
     }
-    // Compatibility fallback for model responses that omit every expected section heading.
-    if (!foundSection) {
-      for (const raw of lines) {
-        const line = raw.trim();
-        if (!line || stopHeading.test(line) || labelOnly.test(line)) continue;
-        if (/^(?:\d+\s*[.)]\s*)?(?:CATCHY\s+TITLE|TITLE|VIDEO\s+DESCRIPTION|HASHTAGS|TAGS|CALL\s+TO\s+ACTION)\b/i.test(line)) continue;
-        if (/^\[.*\]$/.test(line)) continue;
-        const cleaned = line.replace(/^[-*•]+\s*/, "").replace(/\*\*/g, "").trim();
-        if (cleaned && /[\u0900-\u097F]/.test(cleaned)) kept.push(cleaned);
-      }
+    // If the model omits section headings entirely, retain the old safe narration fallback.
+    if (!foundScript) {
+      const fallback = lines.map(line => line.trim()).filter(line =>
+        line && !heading.test(line) && !/^\[.*\]$/.test(line) && /[\u0900-\u097F]/.test(line)
+      );
+      sections.script = fallback;
     }
-    return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 12000);
+    return [...sections.title, ...sections.script, ...sections.cta]
+      .join("\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 12000);
   }
 
   async function generateVoiceFromScript(fullScript, language) {
