@@ -244,9 +244,10 @@
     <div class="sidebar-label">SAINIRADAR MENU</div>
     <button class="side-link active" type="button" data-target="pageTop"><span>⌂</span>Dashboard</button>
     <button class="side-link" type="button" data-target="trendKeywords"><span>🔥</span>Trend Keywords</button>
-    <button class="side-link" type="button" data-target="creatorCategories"><span>🎯</span>Creator Categories</button>\n    <button class="side-link" type="button" data-target="opportunityFinder"><span>🚀</span>Opportunity Finder</button>
+    <button class="side-link" type="button" data-target="creatorCategories"><span>🎯</span>Creator Categories</button>
+    <button class="side-link" type="button" data-target="opportunityFinder"><span>🚀</span>Opportunity Finder</button>
     <button class="side-link" type="button" data-target="trendPredictions"><span>📈</span>Trend Predictions</button>
-    <button class="side-link" type="button" data-target="breakingNews"><span>📰</span>Latest News</button>
+    <button class="side-link" type="button" data-target="breakingNews"><span>📰</span>Breaking News Radar</button>
     <button class="side-link" type="button" data-target="videoResearch"><span>▶</span>Viral Video Research</button>
     <button class="side-link" type="button" data-target="studio"><span>✦</span>AI Script Studio</button>
     <button class="side-link" type="button" data-target="visualTools"><span>🎬</span>Video Maker</button>
@@ -335,7 +336,7 @@
       <p class="notice">Direction estimates need at least two snapshots. First use may show “Collecting signals”. History stays in memory and resets when Render restarts. This is not a guarantee of virality or trend lifetime.</p>
     </section>
 
-    <section class="panel" id="breakingNews">
+    <section class="panel" id="breakingNews" hidden>
       <div class="studio-head">
         <div><h2>🇮🇳 Breaking News Radar</h2><p>Hindi news headlines ek jagah — Aaj Tak, BBC Hindi, NDTV India, Amar Ujala aur Dainik Bhaskar se.</p></div>
         <span class="tag">HINDI NEWS</span>
@@ -1461,7 +1462,9 @@ aiButton.addEventListener("click", async () => {
     await requestScript($("customTopic").value.trim(), "Hindi", $("generateVoiceBtn"), true);
   }
 
+  let newsLoaded = false;
   async function loadHindiNews() {
+    newsLoaded = true;
     const button = $("newsRefreshBtn");
     const message = $("newsMessage");
     const box = $("newsResults");
@@ -1681,6 +1684,10 @@ Keep the reporting factual. Do not invent facts or unverified details.`;
   sidebar.querySelectorAll("[data-target]").forEach(link => {
     link.addEventListener("click", () => {
       const target = $(link.dataset.target);
+      if (target && target.id === "breakingNews") {
+        target.hidden = false;
+        if (!newsLoaded) loadHindiNews();
+      }
       if (target) target.scrollIntoView({behavior:"smooth", block:"start"});
       sidebar.querySelectorAll(".side-link").forEach(item => item.classList.toggle("active", item === link));
       closeSidebar();
@@ -1688,7 +1695,6 @@ Keep the reporting factual. Do not invent facts or unverified details.`;
   });
 
   loadTrends();
-  loadHindiNews();
 </script>
 </body>
 </html>
