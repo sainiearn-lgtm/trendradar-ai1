@@ -566,7 +566,7 @@ async def viral_opportunities(region: str = "IN", limit: int = 10, category: str
     opportunities = []
     selected_category = clean_text(category, 40).casefold() if category else ""
     if selected_category and selected_category not in {value.casefold() for value in CREATOR_CATEGORIES}:
-        raise HTTPException(status_code=422, detail=f"Unsupported category. Choose: {\", \".join(CREATOR_CATEGORIES)}")
+        raise HTTPException(status_code=422, detail="Unsupported category. Choose: " + ", ".join(CREATOR_CATEGORIES))
 
     stage_momentum = {
         "emerging": 95, "rising": 85, "viral": 75, "new": 70,
