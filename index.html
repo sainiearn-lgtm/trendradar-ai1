@@ -1423,9 +1423,9 @@ aiButton.addEventListener("click", async () => {
   let currentVideoUrl = null;
 
   function getNarrationText(fullScript) {
-    // Extract spoken Hindi even if Gemini slightly changes or omits the requested heading.
+    // Extract only the complete narration. Opening Hook is a separate preview section and must not be read again.
     const lines = String(fullScript || "").replace(/\r/g, "").split("\n");
-    const startHeading = /^\s*(?:\d+\s*[.)]\s*)?(?:\*\*)?(?:COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCRIPT\s+NARRATION|OPENING\s+HOOK)\b.*$/i;
+    const startHeading = /^\s*(?:\d+\s*[.)]\s*)?(?:\*\*)?(?:COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCRIPT\s+NARRATION)\b.*$/i;
     const stopHeading = /^\s*(?:\d+\s*[.)]\s*)?(?:\*\*)?(?:SCENE[- ]BY[- ]SCENE\s+VISUAL|VISUAL\s+SUGGESTIONS|VISUAL\s+DIRECTION|THUMBNAIL\s+TEXT|VIDEO\s+DESCRIPTION|HASHTAGS|CALL\s+TO\s+ACTION|TAGS)\b/i;
     const labelOnly = /^(?:\*\*)?(?:CATCHY\s+TITLE|TITLE|OPENING\s+HOOK|HOOK|INTRO|OUTRO|COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCENE\s*\d+|VOICEOVER|NARRATOR|VISUAL|CAMERA|SHOT|SFX|BGM|ON[- ]SCREEN\s+TEXT)\b.*$/i;
     let active = false;
