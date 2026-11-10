@@ -633,9 +633,22 @@
       }));
       currentOpportunities = Array.isArray(data.opportunities) ? data.opportunities : [];
       renderOpportunities(currentOpportunities);
+      const categoryNote = data.selected_category && data.selected_category !== "All"
+        ? (data.category_research === "ok"
+          ? " · " + (data.category_research_count || 0) + " fresh category-search results checked"
+          : data.category_research === "no_results"
+            ? " · No fresh category-search results found in the last 7 days"
+            : data.category_research === "unavailable"
+              ? " · Category news search temporarily unavailable; showing matching existing trends only"
+              : "")
+        : "";
       $("opportunityMessage").textContent = currentOpportunities.length
-        ? currentOpportunities.length + " opportunities ranked · " + (data.methodology || "Based on available public trend signals.")
-        : "No opportunity data returned for this region.";
+        ? currentOpportunities.length + " opportunities ranked" + categoryNote + " · " + (data.methodology || "Based on available public trend signals.")
+        : (data.category_research === "unavailable"
+          ? "Category-specific news search is temporarily unavailable, and no matching topics were found in the existing trend feed."
+          : data.category_research === "no_results"
+            ? "No relevant topics found for this category in the current trend feed or recent category search. Try again later."
+            : "No opportunity data returned for this region.");
       $("opportunityMessage").className = "message";
     } catch (error) {
       currentOpportunities = [];
