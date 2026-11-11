@@ -1423,28 +1423,31 @@ aiButton.addEventListener("click", async () => {
   let currentVideoUrl = null;
 
   function getNarrationText(fullScript) {
-    // Audio order: Catchy Title -> Complete Video Script (includes its opening hook) -> Call to Action.
-    // The standalone Opening Hook preview is deliberately excluded to prevent duplicate narration.
+    // Voiceover speaks only these sections, once each, in this order:
+    // Catchy Title -> Complete Video Script -> Call to Action.
+    // Opening Hook, Thumbnail Text and Video Description are never narrated separately.
     const lines = String(fullScript || "").replace(/\r/g, "").split("\n");
-    const heading = /^\s*(?:\d+\s*[.)]\s*)?(?:\*\*|__)?\s*(CATCHY\s+TITLE|TITLE|OPENING\s+HOOK|HOOK|INTRO|COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCRIPT\s+NARRATION|SCENE[- ]BY[- ]SCENE\s+VISUAL(?:\s+SUGGESTIONS)?|VISUAL\s+SUGGESTIONS|VISUAL\s+DIRECTION|THUMBNAIL\s+TEXT|VIDEO\s+DESCRIPTION|HASHTAGS|CALL\s+TO\s+ACTION|TAGS)\b.*$/i;
+    const heading = /^\s*(?:#{1,6}\s*)?(?:\d+\s*[.)]\s*)?(?:[-*•]+\s*)?(?:\*\*|__)?\s*(CATCHY\s+TITLE|TITLE|OPENING\s+HOOK|HOOK|INTRO|COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCRIPT\s+NARRATION|SCENE[- ]BY[- ]SCENE\s+VISUAL(?:\s+SUGGESTIONS)?|VISUAL\s+SUGGESTIONS|VISUAL\s+DIRECTION|THUMBNAIL\s+TEXT|VIDEO\s+DESCRIPTION|HASHTAGS|CALL\s+TO\s+ACTION|TAGS)\b.*$/i;
     const wanted = [
-      { name: "title", re: /^\s*(?:\d+\s*[.)]\s*)?(?:\*\*|__)?\s*(?:CATCHY\s+TITLE|TITLE)\b/i },
-      { name: "script", re: /^\s*(?:\d+\s*[.)]\s*)?(?:\*\*|__)?\s*(?:COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCRIPT\s+NARRATION)\b/i },
-      { name: "cta", re: /^\s*(?:\d+\s*[.)]\s*)?(?:\*\*|__)?\s*CALL\s+TO\s+ACTION\b/i }
+      { name: "title", re: /^\s*(?:#{1,6}\s*)?(?:\d+\s*[.)]\s*)?(?:[-*•]+\s*)?(?:\*\*|__)?\s*(?:CATCHY\s+TITLE|TITLE)\b/i },
+      { name: "script", re: /^\s*(?:#{1,6}\s*)?(?:\d+\s*[.)]\s*)?(?:[-*•]+\s*)?(?:\*\*|__)?\s*(?:COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCRIPT\s+NARRATION)\b/i },
+      { name: "cta", re: /^\s*(?:#{1,6}\s*)?(?:\d+\s*[.)]\s*)?(?:[-*•]+\s*)?(?:\*\*|__)?\s*CALL\s+TO\s+ACTION\b/i }
     ];
     const sections = { title: [], script: [], cta: [] };
+    const seen = new Set();
     let current = "";
     let foundScript = false;
     for (const raw of lines) {
       const line = raw.trim();
-      const match = heading.exec(line);
-      if (match) {
+      if (!line) continue;
+      if (heading.test(line)) {
         const key = wanted.find(item => item.re.test(line));
-        current = key ? key.name : "";
+        current = key && !seen.has(key.name) ? key.name : "";
+        if (current) seen.add(current);
         if (current === "script") foundScript = true;
         continue;
       }
-      if (!current || !line) continue;
+      if (!current) continue;
       if (/^\[.*\]$/.test(line) || /^\(.*(?:music|sound|camera|visual|cut to|show|zoom|fade).*\)$/i.test(line)) continue;
       const cleaned = line
         .replace(/^\s*(?:[-*•]+\s*)?(?:\d{1,2}:\d{2}(?::\d{2})?\s*[-–—:]?\s*)/, "")
@@ -1454,7 +1457,7 @@ aiButton.addEventListener("click", async () => {
         .trim();
       if (cleaned && /[\u0900-\u097F]/.test(cleaned)) sections[current].push(cleaned);
     }
-    // If the model omits section headings entirely, retain the old safe narration fallback.
+    // If section headings are absent, keep the existing safe fallback behavior.
     if (!foundScript) {
       const fallback = lines.map(line => line.trim()).filter(line =>
         line && !heading.test(line) && !/^\[.*\]$/.test(line) && /[\u0900-\u097F]/.test(line)
