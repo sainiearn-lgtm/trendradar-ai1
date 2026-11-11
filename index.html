@@ -869,7 +869,7 @@ async function generateAiImage(prompt) {
       const data = await readJson(await fetch(apiUrl("/api/visuals"), {
         method:"POST",
         headers:{"Content-Type":"application/json","Accept":"application/json"},
-        body:JSON.stringify({script, topic})
+        body:JSON.stringify({script:getNarrationText(script), topic})
       }));
       const scenes = Array.isArray(data.scenes) ? data.scenes : [];
       if (!scenes.length) throw new Error("Is script ke liye scenes nahi mile.");
