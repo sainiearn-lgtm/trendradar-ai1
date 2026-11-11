@@ -1469,13 +1469,13 @@ aiButton.addEventListener("click", async () => {
     // Subtitle-only narration: keep Catchy Title, main script and CTA,
     // but remove the separate Opening Hook from captions when it is repeated
     // at the beginning of the main script. Voice generation is unchanged.
-    const lines = String(fullScript || "").replace(/\\r/g, "").split("\\n");
-    const heading = /^\\s*(?:\\d+\\s*[.)]\\s*)?(?:\\*\\*|__)?\\s*(CATCHY\\s+TITLE|TITLE|OPENING\\s+HOOK|HOOK|INTRO|COMPLETE\\s+VIDEO\\s+SCRIPT|VIDEO\\s+SCRIPT|SCRIPT\\s+NARRATION|SCENE[- ]BY[- ]SCENE\\s+VISUAL(?:\\s+SUGGESTIONS)?|VISUAL\\s+SUGGESTIONS|VISUAL\\s+DIRECTION|THUMBNAIL\\s+TEXT|VIDEO\\s+DESCRIPTION|HASHTAGS|CALL\\s+TO\\s+ACTION|TAGS)\\b.*$/i;
+    const lines = String(fullScript || "").replace(/\r/g, "").split("\n");
+    const heading = /^\s*(?:\d+\s*[.)]\s*)?(?:\*\*|__)?\s*(CATCHY\s+TITLE|TITLE|OPENING\s+HOOK|HOOK|INTRO|COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCRIPT\s+NARRATION|SCENE[- ]BY[- ]SCENE\s+VISUAL(?:\s+SUGGESTIONS)?|VISUAL\s+SUGGESTIONS|VISUAL\s+DIRECTION|THUMBNAIL\s+TEXT|VIDEO\s+DESCRIPTION|HASHTAGS|CALL\s+TO\s+ACTION|TAGS)\b.*$/i;
     const wanted = [
-      { name: "title", re: /^\\s*(?:\\d+\\s*[.)]\\s*)?(?:\\*\\*|__)?\\s*(?:CATCHY\\s+TITLE|TITLE)\\b/i },
-      { name: "hook", re: /^\\s*(?:\\d+\\s*[.)]\\s*)?(?:\\*\\*|__)?\\s*(?:OPENING\\s+HOOK|HOOK|INTRO)\\b/i },
-      { name: "script", re: /^\\s*(?:\\d+\\s*[.)]\\s*)?(?:\\*\\*|__)?\\s*(?:COMPLETE\\s+VIDEO\\s+SCRIPT|VIDEO\\s+SCRIPT|SCRIPT\\s+NARRATION)\\b/i },
-      { name: "cta", re: /^\\s*(?:\\d+\\s*[.)]\\s*)?(?:\\*\\*|__)?\\s*CALL\\s+TO\\s+ACTION\\b/i }
+      { name: "title", re: /^\s*(?:\d+\s*[.)]\s*)?(?:\*\*|__)?\s*(?:CATCHY\s+TITLE|TITLE)\b/i },
+      { name: "hook", re: /^\s*(?:\d+\s*[.)]\s*)?(?:\*\*|__)?\s*(?:OPENING\s+HOOK|HOOK|INTRO)\b/i },
+      { name: "script", re: /^\s*(?:\d+\s*[.)]\s*)?(?:\*\*|__)?\s*(?:COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCRIPT\s+NARRATION)\b/i },
+      { name: "cta", re: /^\s*(?:\d+\s*[.)]\s*)?(?:\*\*|__)?\s*CALL\s+TO\s+ACTION\b/i }
     ];
     const sections = { title: [], hook: [], script: [], cta: [] };
     let current = "";
@@ -1489,24 +1489,23 @@ aiButton.addEventListener("click", async () => {
         if (current === "script") foundScript = true;
         continue;
       }
-      if (!current || /^\\[.*\\]$/.test(line) || /^\\(.*(?:music|sound|camera|visual|cut to|show|zoom|fade).*\\)$/i.test(line)) continue;
-      const cleaned = line.replace(/^\\s*(?:[-*•]+\\s*)?/, "").replace(/\\*\\*/g, "").replace(/^[-*•]+\\s*/, "").trim();
-      if (cleaned && /[\\u0900-\\u097F]/.test(cleaned)) sections[current].push(cleaned);
+      if (!current || /^\[.*\]$/.test(line) || /^\(.*(?:music|sound|camera|visual|cut to|show|zoom|fade).*\)$/i.test(line)) continue;
+      const cleaned = line.replace(/^\s*(?:[-*•]+\s*)?/, "").replace(/\*\*/g, "").replace(/^[-*•]+\s*/, "").trim();
+      if (cleaned && /[\u0900-\u097F]/.test(cleaned)) sections[current].push(cleaned);
     }
     if (!foundScript) return getNarrationText(fullScript);
 
-    let scriptWords = sections.script.join(" ").split(/\\s+/).filter(Boolean);
-    const hookWords = sections.hook.join(" ").split(/\\s+/).filter(Boolean);
-    const normalize = value => String(value).normalize("NFC").replace(/[^\\p{L}\\p{N}]+/gu, "").toLocaleLowerCase("hi");
-    // Remove the hook only if the main script starts with the same hook text;
-    // this avoids deleting a different opening sentence from the actual script.
+    let scriptWords = sections.script.join(" ").split(/\s+/).filter(Boolean);
+    const hookWords = sections.hook.join(" ").split(/\s+/).filter(Boolean);
+    const normalize = value => String(value).normalize("NFC").replace(/[^\p{L}\p{N}]+/gu, "").toLocaleLowerCase("hi");
+    // Remove the hook only if the main script starts with the same hook text.
     if (hookWords.length && scriptWords.length >= hookWords.length) {
       const matches = hookWords.every((word, index) => normalize(word) === normalize(scriptWords[index]));
       if (matches) scriptWords = scriptWords.slice(hookWords.length);
     }
     const subtitleScript = scriptWords.join(" ");
     return [...sections.title, subtitleScript, ...sections.cta]
-      .filter(Boolean).join("\\n").replace(/\\n{3,}/g, "\\n\\n").trim().slice(0, 12000);
+      .filter(Boolean).join("\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 12000);
   }
 
   async function generateVoiceFromScript(fullScript, language) {
