@@ -1758,47 +1758,65 @@ aiButton.addEventListener("click", async () => {
   let currentVideoUrl = null;
 
   function getNarrationText(fullScript) {
-    // Voiceover speaks only these sections, once each, in this order:
-    // Catchy Title -> Complete Video Script -> Call to Action.
-    // Opening Hook, Thumbnail Text and Video Description are never narrated separately.
+    // Strict allow-list: only Catchy Title, Complete Video Script and CTA.
+    // Never fall back to the complete AI response; that caused excluded sections
+    // to be narrated when the model formatted a heading differently.
     const lines = String(fullScript || "").replace(/\r/g, "").split("\n");
-    const heading = /^\s*(?:#{1,6}\s*)?(?:\d+\s*[.)]\s*)?(?:[-*•]+\s*)?(?:\*\*|__)?\s*(CATCHY\s+TITLE|TITLE|OPENING\s+HOOK|HOOK|INTRO|COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCRIPT\s+NARRATION|SCENE[- ]BY[- ]SCENE\s+VISUAL(?:\s+SUGGESTIONS)?|VISUAL\s+SUGGESTIONS|VISUAL\s+DIRECTION|THUMBNAIL\s+TEXT|VIDEO\s+DESCRIPTION|HASHTAGS|CALL\s+TO\s+ACTION|TAGS)\b.*$/i;
-    const wanted = [
-      { name: "title", re: /^\s*(?:#{1,6}\s*)?(?:\d+\s*[.)]\s*)?(?:[-*•]+\s*)?(?:\*\*|__)?\s*(?:CATCHY\s+TITLE|TITLE)\b/i },
-      { name: "script", re: /^\s*(?:#{1,6}\s*)?(?:\d+\s*[.)]\s*)?(?:[-*•]+\s*)?(?:\*\*|__)?\s*(?:COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCRIPT\s+NARRATION)\b/i },
-      { name: "cta", re: /^\s*(?:#{1,6}\s*)?(?:\d+\s*[.)]\s*)?(?:[-*•]+\s*)?(?:\*\*|__)?\s*CALL\s+TO\s+ACTION\b/i }
-    ];
     const sections = { title: [], script: [], cta: [] };
     const seen = new Set();
     let current = "";
-    let foundScript = false;
+
+    const cleanHeading = value => value
+      .replace(/^\s*#{1,6}\s*/, "")
+      .replace(/^\s*\d+\s*[.)\-:]\s*/, "")
+      .replace(/^\s*[-*•]+\s*/, "")
+      .replace(/\*\*/g, "")
+      .replace(/__/g, "")
+      .trim();
+
+    const headingRules = [
+      { name: "title", re: /^(?:CATCHY[\s_-]+TITLE|TITLE)(?:\s*[:：–—-].*|\s*\([^)]*\))?$/i },
+      { name: "script", re: /^(?:COMPLETE[\s_-]+VIDEO[\s_-]+SCRIPT|VIDEO[\s_-]+SCRIPT|SCRIPT[\s_-]+NARRATION)(?:\s*[:：–—-].*|\s*\([^)]*\))?$/i },
+      { name: "cta", re: /^(?:CALL[\s_-]+TO[\s_-]+ACTION|CTA)(?:\s*[:：–—-].*|\s*\([^)]*\))?$/i }
+    ];
+    const excludedHeading = /^(?:OPENING[\s_-]+HOOK|HOOK|INTRO(?:DUCTION)?|THUMBNAIL(?:[\s_-]+TEXT)?|VIDEO[\s_-]+DESCRIPTION|DESCRIPTION|HASHTAGS?|TAGS?|KEYWORDS?|VISUAL(?:S|[\s_-]+SUGGESTIONS?)?|SCENE[\s_-]+BY[\s_-]+SCENE(?:[\s_-]+VISUALS?)?|VISUAL[\s_-]+DIRECTION|IMAGE[\s_-]+PROMPTS?)(?:\b|\s*[:：–—-])/i;
+
     for (const raw of lines) {
       const line = raw.trim();
       if (!line) continue;
-      if (heading.test(line)) {
-        const key = wanted.find(item => item.re.test(line));
-        current = key && !seen.has(key.name) ? key.name : "";
+
+      const normalized = cleanHeading(line).replace(/[：:]\s*$/, "").trim();
+      const allowed = headingRules.find(rule => rule.re.test(normalized));
+      if (allowed) {
+        current = seen.has(allowed.name) ? "" : allowed.name;
         if (current) seen.add(current);
-        if (current === "script") foundScript = true;
+        continue;
+      }
+      if (excludedHeading.test(normalized)) {
+        current = "";
+        continue;
+      }
+      if (/^(?:\d+\s*[.)]\s*)?(?:VIDEO\s+PACK|CONTENT\s+PACK|SCRIPT\s+OVERVIEW|NOTES?|DISCLAIMER|SOURCE(?:S)?|ENDING\s+VISUALS?)\s*[:：]?$/i.test(normalized)) {
+        current = "";
         continue;
       }
       if (!current) continue;
-      if (/^\[.*\]$/.test(line) || /^\(.*(?:music|sound|camera|visual|cut to|show|zoom|fade).*\)$/i.test(line)) continue;
+
+      if (/^\[.*\]$/.test(line) ||
+          /^\(.*(?:music|sound effect|camera|visual|cut to|show|zoom|fade|transition).*\)$/i.test(line) ||
+          /^(?:SCENE\s*\d+|VISUALS?|ON[ -]SCREEN TEXT|CAMERA|B-ROLL)\s*[:：-]/i.test(line)) continue;
+
       const cleaned = line
         .replace(/^\s*(?:[-*•]+\s*)?(?:\d{1,2}:\d{2}(?::\d{2})?\s*[-–—:]?\s*)/, "")
-        .replace(/^\s*(?:\*\*|__)?(?:NARRATOR|VOICEOVER|VO)\s*[:：-]\s*/i, "")
+        .replace(/^\s*(?:\*\*|__)?(?:NARRATOR|VOICEOVER|VOICE OVER|VO)\s*[:：-]\s*/i, "")
         .replace(/\*\*/g, "")
+        .replace(/__/g, "")
         .replace(/^[-*•]+\s*/, "")
         .trim();
-      if (cleaned && /[\u0900-\u097F]/.test(cleaned)) sections[current].push(cleaned);
+      // Keep mixed Hindi-English and English phrases inside allowed sections.
+      if (cleaned) sections[current].push(cleaned);
     }
-    // If section headings are absent, keep the existing safe fallback behavior.
-    if (!foundScript) {
-      const fallback = lines.map(line => line.trim()).filter(line =>
-        line && !heading.test(line) && !/^\[.*\]$/.test(line) && /[\u0900-\u097F]/.test(line)
-      );
-      sections.script = fallback;
-    }
+
     return [...sections.title, ...sections.script, ...sections.cta]
       .join("\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 12000);
   }
@@ -1814,7 +1832,7 @@ aiButton.addEventListener("click", async () => {
     const button = $("generateVoiceBtn");
     const narration = getNarrationText(fullScript);
     if (language !== "Hindi") throw new Error("Voice abhi Hindi (Devanagari) ke liye hai. Script Language ko Hindi select karein.");
-    if (narration.length < 20) throw new Error("Hindi narration nahi mil paya. Script mein COMPLETE VIDEO SCRIPT heading aur Devanagari Hindi dialogue check karein, phir dobara try karein.");    if (!/[\u0900-\u097F]/.test(narration)) throw new Error("Voice ke liye Hindi text Devanagari mein hona chahiye, jaise: नमस्ते दोस्तों।");
+    if (narration.length < 20) throw new Error("Allowed voice sections nahi mile. Script mein CATCHY TITLE, COMPLETE VIDEO SCRIPT aur CALL TO ACTION headings check karein; excluded sections voice mein include nahi honge.");    if (!/[\u0900-\u097F]/.test(narration)) throw new Error("Voice ke liye Hindi text Devanagari mein hona chahiye, jaise: नमस्ते दोस्तों।");
     button.disabled = true;
     button.textContent = "🎙️ Creating voice…";
     $("scriptMessage").textContent = "Hindi voice ban rahi hai… thoda wait karein (10-30 second lag sakte hain).";
