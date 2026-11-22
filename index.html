@@ -1,0 +1,1789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f5f8fc" />
+  <title>TrendRadar AI — Creator Intelligence</title>
+  <style>
+    :root {
+      --bg: #0b1424; --panel: #14243a; --panel2: #1a2e49;
+      --text: #f1f7ff; --muted: #b0c1d8; --line: rgba(143,180,224,.22);
+      --cyan: #65eee0; --blue: #8db7ff; --green: #8be9ae;
+      --danger: #ff9daa; --shadow: 0 18px 50px rgba(0,0,0,.28), 0 0 34px rgba(77,151,230,.08);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: radial-gradient(ellipse at 12% 8%, rgba(40,126,190,.30) 0, transparent 34%), radial-gradient(ellipse at 88% 18%, rgba(92,82,190,.23) 0, transparent 32%), radial-gradient(ellipse at 50% 85%, rgba(25,145,143,.13) 0, transparent 42%), linear-gradient(145deg,#0c1729 0%,#101d32 48%,#0b1424 100%); background-attachment:fixed; color: var(--text); font: 15px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .topbar { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 15px max(22px, calc((100vw - 1180px)/2)); background: rgba(13,25,43,.82); border-bottom: 1px solid var(--line); box-shadow:0 8px 28px rgba(0,0,0,.16); backdrop-filter: blur(16px); }
+    .brand { display:flex; align-items:center; gap:12px; font-weight:800; letter-spacing:.2px; }
+    .logo { width:38px; height:38px; display:grid; place-items:center; border-radius:12px; color:#07131d; background:linear-gradient(135deg,var(--cyan),var(--blue)); font-size:20px; }
+    .brand small { display:block; color:var(--muted); font-size:11px; font-weight:500; letter-spacing:.5px; }
+    .status { color:var(--green); font-size:12px; display:flex; align-items:center; gap:8px; }
+    .dot { width:8px; height:8px; border-radius:50%; background:var(--green); box-shadow:0 0 12px var(--green); }
+    main { max-width:1180px; margin:auto; padding:42px 22px 70px; }
+    .eyebrow { color:var(--cyan); font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:1.8px; }
+    h1 { margin:8px 0 8px; font-size:clamp(32px,5vw,52px); line-height:1.08; letter-spacing:-1.8px; }
+    .lead { max-width:650px; margin:0; color:var(--muted); font-size:16px; }
+    .hero-intro { position:relative; max-width:780px; margin:0 0 30px; padding:30px 30px 28px; overflow:hidden; border:1px solid rgba(7,143,145,.16); border-radius:24px; background:radial-gradient(ellipse at 88% 10%,rgba(84,141,224,.13),transparent 42%),linear-gradient(135deg,#fff 0%,#f3fbfb 55%,#f5f8ff 100%); box-shadow:0 14px 38px rgba(30,55,85,.07); }
+    .hero-intro:after { content:"✦"; position:absolute; right:30px; top:16px; color:rgba(7,143,145,.12); font-size:100px; line-height:1; pointer-events:none; }
+    .hero-kicker { display:inline-flex; align-items:center; gap:8px; color:#078f91; font-size:10px; font-weight:900; letter-spacing:1.8px; }
+    .hero-kicker-dot { width:7px; height:7px; border-radius:50%; background:#18aaa1; box-shadow:0 0 0 5px rgba(24,170,161,.11); }
+    .hero-title { position:relative; z-index:1; margin:15px 0 0; font-size:clamp(44px,7vw,70px); line-height:.98; letter-spacing:-3px; font-weight:900; color:#17263b; }
+    .hero-title span { color:transparent; background:linear-gradient(105deg,#078f91 8%,#356fc4 90%); background-clip:text; -webkit-background-clip:text; }
+    .hero-byline { display:flex; align-items:center; gap:7px; margin:10px 0 16px; color:#74849a; font-size:14px; font-weight:600; letter-spacing:.2px; }
+    .hero-byline strong { color:#263e5a; font-weight:850; }
+    .hero-spark { color:#17aaa2; font-size:17px; }
+    .hero-about { position:relative; z-index:1; max-width:660px; font-size:15px; line-height:1.75; }
+    @media(max-width:700px) { .hero-intro { padding:23px 20px; border-radius:19px; } .hero-title { letter-spacing:-2px; } .hero-intro:after { right:15px; top:15px; font-size:76px; } }
+
+    .controls { display:grid; grid-template-columns:180px 1fr auto; gap:10px; margin:28px 0 22px; }
+    .field, select, input, textarea { width:100%; border:1px solid var(--line); border-radius:12px; background:rgba(20,37,59,.88); color:var(--text); padding:13px 14px; outline:none; }
+    .field:focus, select:focus, input:focus, textarea:focus { border-color:var(--cyan); box-shadow:0 0 0 3px rgba(85,223,208,.1); }
+    .btn { border:0; border-radius:12px; padding:12px 18px; color:#07131d; background:linear-gradient(120deg,var(--cyan),#8ab7ff); font-weight:800; }
+    .btn:disabled { opacity:.55; cursor:wait; }
+    .btn.secondary { color:var(--text); background:#1b2b44; border:1px solid var(--line); }
+    .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:20px 0 28px; }
+    .stat, .panel, .trend-card { background:linear-gradient(145deg,rgba(31,54,82,.88),rgba(18,34,56,.92)); border:1px solid var(--line); border-radius:17px; box-shadow:var(--shadow); }
+    .stat { padding:17px 19px; }
+    .stat span { display:block; color:var(--muted); font-size:12px; }
+    .stat strong { display:block; margin-top:4px; font-size:24px; }
+    .section-head { display:flex; justify-content:space-between; align-items:end; gap:15px; margin:30px 0 14px; }
+    .trend-display-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .trend-limit-label { margin:0; color:var(--muted); font-size:12px; }
+    .trend-limit { width:auto; min-width:68px; padding:7px 10px; border-radius:9px; }
+    @media(max-width:700px) {
+      .trend-display-controls { width:100%; justify-content:flex-start; }
+    }
+    h2 { margin:0; font-size:21px; }
+    .sub { color:var(--muted); font-size:12px; }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    .trend-card { padding:18px; min-width:0; }
+    .card-top { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .tag { color:var(--cyan); background:rgba(85,223,208,.1); border:1px solid rgba(85,223,208,.2); border-radius:30px; padding:5px 9px; font-size:11px; }
+    .rank { color:var(--muted); font-size:12px; }
+    .stage-badge { border-radius:30px; padding:5px 9px; font-size:10px; font-weight:800; border:1px solid var(--line); white-space:nowrap; }
+    .stage-emerging { color:#f6d36b; background:rgba(246,211,107,.1); }
+    .stage-rising { color:#8ab7ff; background:rgba(138,183,255,.1); }
+    .stage-viral { color:#ff9b9b; background:rgba(255,155,155,.1); }
+    .stage-declining { color:var(--muted); background:rgba(150,160,175,.08); }
+    .stage-collecting,.stage-new,.stage-stable { color:var(--muted); background:rgba(150,160,175,.08); }
+    .trend-card h3 { margin:13px 0 7px; font-size:19px; line-height:1.3; }
+    .trend-card p { color:var(--muted); margin:0 0 15px; font-size:13px; }
+    .card-bottom { display:flex; align-items:center; justify-content:space-between; gap:12px; border-top:1px solid var(--line); padding-top:13px; }
+    .score { color:var(--green); font-size:12px; font-weight:800; }
+    .card-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .text-link { color:var(--blue); font-size:12px; text-decoration:none; }
+    .mini-btn { border:1px solid rgba(85,223,208,.3); color:var(--cyan); background:rgba(85,223,208,.08); border-radius:9px; padding:8px 10px; font-size:12px; font-weight:700; }
+    .notice { margin:14px 0 30px; color:var(--muted); font-size:11px; }
+    .panel { padding:22px; margin-top:25px; }
+    .studio-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:17px; }
+    .studio-head p { margin:4px 0 0; color:var(--muted); font-size:12px; }
+    .studio-controls { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:15px 0; }
+    label { display:block; color:var(--muted); font-size:12px; margin-bottom:7px; }
+    .topic-row { display:grid; grid-template-columns:1fr auto; gap:10px; }
+    textarea { min-height:260px; resize:vertical; margin-top:12px; line-height:1.65; }
+    .voice-controls { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0; padding:14px; border:1px solid var(--line); border-radius:13px; background:rgba(13,23,39,.7); }
+    .voice-controls input[type="range"] { padding:8px 0; accent-color:var(--cyan); }
+    .voice-reset-wrap { display:flex; align-items:end; }
+    .voice-btn { background:linear-gradient(120deg,#a98cff,#73b7ff); }
+    .audio-panel { margin:12px 0; padding:16px; border:1px solid rgba(85,223,208,.25); border-radius:13px; background:rgba(85,223,208,.06); }
+    .audio-title { font-weight:800; margin-bottom:10px; }
+    .audio-panel audio { display:block; width:100%; margin-bottom:12px; }
+    .download-btn { display:inline-block; text-decoration:none; }
+    .script-buttons { grid-template-columns:minmax(0,1fr) auto auto; }
+    .visual-tools { margin:16px 0; padding:16px; border:1px solid #c9eeea; border-radius:14px; background:#f4fbfa; }
+    .visual-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
+    .visual-scenes { display:grid; grid-template-columns:1fr; gap:14px; margin-top:14px; }
+    .visual-scene { border:1px solid var(--line); border-radius:13px; padding:13px; background:#fff; }
+    .visual-scene h3 { margin:5px 0; font-size:15px; }
+    .visual-scene p { color:var(--muted); font-size:12px; margin:5px 0 10px; }
+    .visual-images { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:9px; }
+    .visual-choice { border:2px solid transparent; border-radius:10px; padding:5px; background:#f2f6fa; text-align:left; color:var(--text); min-width:0; }
+    .visual-choice.selected { border-color:#078f91; box-shadow:0 0 0 2px rgba(7,143,145,.12); }
+    .visual-choice img { width:100%; height:110px; object-fit:cover; border-radius:7px; display:block; }
+    .visual-choice span { display:block; font-size:10px; margin-top:5px; overflow-wrap:anywhere; }
+    .visual-credit { font-size:10px; color:var(--muted); margin-top:7px; }
+    .video-maker { margin-top:18px; padding:16px; border:1px solid #b8d7ff; border-radius:14px; background:#f2f7ff; }
+    .video-maker h3 { margin:0 0 5px; }
+    .video-maker p { color:var(--muted); font-size:12px; margin:4px 0 12px; }
+    .video-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .video-preview { display:block; width:min(100%,280px); max-height:500px; margin-top:12px; border-radius:12px; background:#111; }
+    .video-download { display:inline-block; margin-top:10px; text-decoration:none; }
+    .output-actions { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:10px; }
+    .message { min-height:20px; color:var(--muted); font-size:12px; }
+    .message.error { color:var(--danger); }
+    .empty { grid-column:1/-1; border:1px dashed var(--line); border-radius:15px; padding:30px; text-align:center; color:var(--muted); }
+    .opportunity-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    .opportunity-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .opportunity-actions select { width:auto; min-width:105px; }
+    .opportunity-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:16px; }
+    .opportunity-card { min-width:0; padding:16px; border:1px solid #dce8ef; border-radius:14px; background:linear-gradient(145deg,#fbfefe,#f4f9ff); }
+    .opportunity-card h3 { margin:9px 0 6px; font-size:16px; line-height:1.35; color:#17263b; }
+    .opportunity-card p { margin:0 0 10px; color:#64748b; font-size:12px; }
+    .opportunity-card-top { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .opportunity-score { color:#087f80; font-size:20px; font-weight:900; white-space:nowrap; }
+    .opportunity-label { display:inline-flex; padding:4px 8px; border-radius:20px; background:#e8f8f2; color:#168653; font-size:10px; font-weight:800; }
+    .opportunity-reasons { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 12px; }
+    .opportunity-reasons span { padding:4px 7px; border-radius:7px; background:#edf3f9; color:#52647a; font-size:10px; }
+    .opportunity-card .mini-btn { margin-top:4px; }
+    @media(max-width:700px) { .opportunity-grid { grid-template-columns:1fr; } .opportunity-toolbar { align-items:flex-start; } .opportunity-actions { width:100%; } .opportunity-actions select { flex:1; } }
+    footer { color:#71839e; font-size:11px; text-align:center; margin-top:32px; }
+    @media(max-width:700px) {
+      .topbar { padding:12px 16px; } main { padding:32px 15px 55px; }
+      .controls { grid-template-columns:1fr; } .stats { gap:8px; }
+      .stat { padding:13px; } .stat strong { font-size:20px; }
+      .grid { grid-template-columns:1fr; } .studio-controls { grid-template-columns:1fr; }
+      .studio-head { align-items:flex-start; flex-direction:column; }
+      .topic-row, .script-buttons { grid-template-columns:1fr; } .voice-controls { grid-template-columns:1fr; } .status { font-size:0; }
+      .card-bottom { align-items:flex-start; flex-direction:column; }
+    }
+  
+    /* TrendRadar AI — soft light theme */
+    :root {
+      --bg: #f5f8fc; --panel: #ffffff; --panel2: #f1f6fb;
+      --text: #17263b; --muted: #64748b; --line: #dce5ef;
+      --cyan: #078f91; --blue: #356fc4; --green: #168653;
+      --danger: #c43e52; --shadow: 0 8px 26px rgba(30,55,85,.075);
+    }
+    body {
+      background: linear-gradient(135deg,#f7faff 0%,#f1f6fb 55%,#f8fbff 100%);
+      background-attachment: fixed; color:var(--text);
+    }
+    .topbar {
+      background:rgba(255,255,255,.92); border-bottom:1px solid #e1e8f0;
+      box-shadow:0 5px 20px rgba(30,55,85,.06);
+    }
+    .logo { color:#fff; background:linear-gradient(135deg,#2bb9b0,#6e9ee8); }
+    .status { color:#52647a; }
+    .dot { background:#22a06b; box-shadow:0 0 10px rgba(34,160,107,.25); }
+    .eyebrow { color:#078f91; }
+    .field, select, input, textarea {
+      background:#fff; color:#17263b; border-color:#d7e1ec;
+      box-shadow:0 1px 2px rgba(20,40,65,.025);
+    }
+    .field::placeholder, input::placeholder, textarea::placeholder { color:#91a0b3; }
+    .field:focus, select:focus, input:focus, textarea:focus {
+      border-color:#45b8b1; box-shadow:0 0 0 3px rgba(7,143,145,.10);
+    }
+    .btn { color:#fff; background:linear-gradient(120deg,#17aaa2,#548de0); }
+    .btn.secondary { color:#33465e; background:#edf3f9; border-color:#dce5ef; }
+    .stat, .panel, .trend-card {
+      background:#fff; border-color:#e1e8f0;
+      box-shadow:var(--shadow);
+    }
+    .tag { color:#087f80; background:#e8f8f6; border-color:#c9eeea; }
+    .score { color:#168653; }
+    .text-link { color:#356fc4; }
+    .mini-btn { color:#087f80; background:#effaf8; border-color:#c9eeea; }
+    .voice-controls { background:#f5f8fc; border-color:#e0e8f0; }
+    .voice-controls input[type="range"] { accent-color:#078f91; }
+    .audio-panel { background:#effaf8; border-color:#c9eeea; }
+    .empty { background:#fbfdff; border-color:#d8e3ee; }
+    footer { color:#8492a5; }
+    @media(max-width:700px) {
+      .topbar { background:rgba(255,255,255,.96); }
+    }
+
+  
+    /* Sidebar navigation: navigation-only, existing sections and workflows stay intact. */
+    .workspace-page { display:none !important; }
+    .workspace-page.active { display:block !important; }
+    .sidebar-toggle {
+      display:none; border:1px solid #dce5ef; background:#fff; color:#24364d;
+      border-radius:10px; width:40px; height:40px; font-size:21px; line-height:1;
+    }
+    .sidebar {
+      position:fixed; z-index:8; left:16px; top:88px; bottom:18px; width:214px;
+      padding:14px 10px; overflow-y:auto; background:rgba(255,255,255,.96);
+      border:1px solid #e1e8f0; border-radius:16px; box-shadow:0 8px 26px rgba(30,55,85,.08);
+    }
+    .sidebar-label { padding:7px 11px 12px; color:#8492a5; font-size:10px; font-weight:800; letter-spacing:1.2px; }
+    .side-link {
+      display:flex; align-items:center; gap:10px; width:100%; margin:3px 0; padding:11px 12px;
+      border:0; border-radius:10px; background:transparent; color:#40536b; text-align:left;
+      font-size:13px; font-weight:700;
+    }
+    .side-link:hover, .side-link.active { color:#087f80; background:#eaf8f6; }
+    .side-link span { width:20px; text-align:center; font-size:16px; }
+    .sidebar-backdrop { display:none; }
+    @media(min-width:701px) {
+      main { margin-left:246px; margin-right:auto; }
+      .topbar { padding-left:22px; }
+    }
+    @media(max-width:700px) {
+      .sidebar-toggle { display:grid; place-items:center; flex:0 0 40px; }
+      .topbar { justify-content:flex-start; }
+      .brand { flex:1; }
+      .sidebar {
+        top:70px; left:0; bottom:0; width:min(280px,82vw); z-index:12;
+        border-radius:0 16px 16px 0; transform:translateX(-105%); transition:transform .22s ease;
+      }
+      body.sidebar-open .sidebar { transform:translateX(0); }
+      .sidebar-backdrop {
+        display:block; position:fixed; inset:62px 0 0; z-index:11; background:rgba(20,35,55,.28);
+        opacity:0; pointer-events:none; transition:opacity .22s ease;
+      }
+      body.sidebar-open .sidebar-backdrop { opacity:1; pointer-events:auto; }
+      main { margin:0 auto; }
+    }
+    html { scroll-behavior:smooth; scroll-padding-top:90px; }
+
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><div class="logo">⌁</div><div>TrendRadar AI<small>CREATOR INTELLIGENCE</small></div></div>
+    <div class="status" title="Backend connection status">
+      <span id="connectionApple" role="img" aria-label="Checking connection" style="font-size:19px;line-height:1">🍎</span>
+      <span class="dot" id="connectionDot"></span>
+      <span id="feedStatus">Checking live feeds…</span>
+    </div>
+  </header>
+  <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+    <div class="sidebar-label">SAINIRADAR MENU</div>
+    <button class="side-link active" type="button" data-target="pageTop"><span>⌂</span>Dashboard</button>
+    <button class="side-link" type="button" data-target="trendingNowPage"><span>🔥</span>Trending Right Now</button>
+    <button class="side-link" type="button" data-target="creatorCategories"><span>🎯</span>Choose Your Creator Category</button>
+    <button class="side-link" type="button" data-target="opportunityFinder"><span>🚀</span>Discover Your Next Content Opportunity</button>
+    <button class="side-link" type="button" data-target="trendPredictions"><span>📈</span>Trend Direction Lab</button>
+    <button class="side-link" type="button" data-target="breakingNews"><span>📰</span>Breaking News Radar</button>
+    <button class="side-link" type="button" data-target="videoResearch"><span>▶</span>Viral Video Research</button>
+    <button class="side-link" type="button" data-target="studio"><span>✦</span>AI Script Studio</button>
+    <button class="side-link" type="button" data-target="visualTools"><span>🎬</span>Video Maker</button>
+  </aside>
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+  <main id="pageTop">
+    <section class="hero-intro" aria-label="TrendRadar AI introduction">
+      <div class="hero-kicker"><span class="hero-kicker-dot"></span> YOUR CREATOR WORKSPACE</div>
+      <h1 class="hero-title">Ready to <span>Post.</span></h1>
+      <div class="hero-byline">by <strong>TrendRadar AI</strong><span class="hero-spark">✦</span></div>
+      <p class="lead hero-about">Spot rising trends, discover what your audience is talking about, and turn fresh ideas into publish-ready videos with AI-powered scripts, voiceovers and video creation — all in one place.</p>
+    </section>
+    <section class="workspace-page" id="trendingNowPage">
+    <section class="controls" id="trendKeywords" aria-label="Trend filters">
+      <select id="region" class="field" aria-label="Select region">
+        <option value="IN">🇮🇳 India</option><option value="US">🇺🇸 United States</option>
+        <option value="GB">🇬🇧 United Kingdom</option><option value="CA">🇨🇦 Canada</option>
+        <option value="AU">🇦🇺 Australia</option><option value="DE">🇩🇪 Germany</option>
+      </select>
+      <input id="keyword" class="field" type="search" placeholder="Filter trends by keyword…" />
+      <button id="refreshBtn" class="btn">↻ Refresh trends</button>
+    </section>
+    <section class="stats">
+      <div class="stat"><span>TOPICS FOUND</span><strong id="topicsCount">—</strong></div>
+      <div class="stat"><span>TOP SIGNAL</span><strong id="topSignal">—</strong></div>
+      <div class="stat"><span>LAST UPDATED</span><strong id="lastUpdated">—</strong></div>
+    </section>
+    <div class="section-head">
+      <div><h2>Trending right now</h2><div class="sub">Live public signals · selected region</div></div>
+      <div class="trend-display-controls">
+        <span class="sub" id="sourceCount">Waiting for sources</span>
+        <label class="trend-limit-label" for="trendLimit">Show</label>
+        <select id="trendLimit" class="trend-limit" aria-label="Number of trending topics to show">
+          <option value="5">5</option><option value="10" selected>10</option>
+          <option value="15">15</option><option value="20">20</option>
+        </select>
+      </div>
+    </div>
+    <section id="trendGrid" class="grid"><div class="empty">Loading public trend sources…</div></section>
+    <p class="notice">Trend scores are indicative estimates based on public-source signals and recency. They are not official Google Trends or platform analytics. Availability and coverage vary by region and source.</p>
+    </section>
+
+    <section class="panel workspace-page" id="creatorCategories">
+      <div class="studio-head">
+        <div><h2>🎯 Choose Your Creator Category</h2><p>Pick the niche you create videos for. Your topic ideas will be filtered to match.</p></div>
+        <span class="tag">PERSONALIZE YOUR FEED</span>
+      </div>
+      <div class="opportunity-toolbar">
+        <label class="sub" for="opportunityCategory">Show topics for</label>
+        <div class="opportunity-actions"><select id="opportunityCategory" aria-label="Filter creator topics by category"><option value="">All categories</option><option>Entertainment</option><option>Sports</option><option>Politics</option><option>Technology</option><option>Business</option><option>Gaming</option><option>Education</option><option>Lifestyle</option><option>Devotional</option><option>General</option></select></div>
+      </div>
+    </section>
+
+    <section class="panel workspace-page" id="opportunityFinder">
+      <div class="studio-head">
+        <div><h2>🚀 Discover Your Next Content Opportunity</h2><p>Find creator-ready topics by category using current interest, observed momentum, freshness and source coverage.</p></div>
+        <span class="tag">BETA · DATA-BASED</span>
+      </div>
+      <div class="opportunity-toolbar">
+        <div class="sub">Selected region: <strong id="opportunityRegion">India</strong> · Runs only when you ask</div>
+        <div class="opportunity-actions">
+          
+          <select id="opportunityLimit" aria-label="Number of opportunities to show">
+            <option value="5">Top 5</option><option value="10" selected>Top 10</option>
+            <option value="15">Top 15</option><option value="20">Top 20</option>
+          </select>
+          <button id="opportunityRefreshBtn" class="btn" type="button">Find opportunities ✨</button>
+        </div>
+      </div>
+      <div id="opportunityMessage" class="message" role="status" style="margin-top:12px">Tap “Find opportunities” to analyse the currently available trend feed.</div>
+      <div id="opportunityResults" class="opportunity-grid"></div>
+      <p class="notice">Category is inferred from topic text. Scores are evidence-based estimates, not viral predictions. Creator competition is not measured yet. Results reuse the existing trend feed; no separate polling or AI generation runs in the background.</p>
+    </section>
+
+    <section class="panel workspace-page" id="trendPredictions">
+      <div class="studio-head">
+        <div><h2>📈 Trend Direction Lab</h2><p>Recent snapshots se dekho kaun-se topics ki momentum badh rahi hai ya gir rahi hai.</p></div>
+        <span class="tag">BETA · SNAPSHOT BASED</span>
+      </div>
+      <div class="opportunity-toolbar">
+        <div class="sub">Selected region: <strong id="predictionRegion">India</strong> · Runs only when you ask</div>
+        <div class="opportunity-actions">
+          <button id="predictionRefreshBtn" class="btn" type="button">Analyse trend direction 📈</button>
+        </div>
+      </div>
+      <div id="predictionMessage" class="message" role="status" style="margin-top:12px">Tap “Analyse trend direction” to compare recent trend snapshots.</div>
+      <div id="predictionResults" class="opportunity-grid"></div>
+      <p class="notice">Direction estimates need at least two snapshots. First use may show “Collecting signals”. History stays in memory and resets when Render restarts. This is not a guarantee of virality or trend lifetime.</p>
+    </section>
+
+    <section class="panel" id="breakingNews" hidden>
+      <div class="studio-head">
+        <div><h2>🇮🇳 Breaking News Radar</h2><p>Hindi news headlines ek jagah — Aaj Tak, BBC Hindi, NDTV India, Amar Ujala aur Dainik Bhaskar se.</p></div>
+        <span class="tag">HINDI NEWS</span>
+      </div>
+      <div class="topic-row">
+        <select id="newsLimit" aria-label="News per page"><option value="10" selected>Latest 10</option><option value="20">Latest 20</option><option value="30">Latest 30</option><option value="40">Latest 40</option></select>
+        <button id="newsRefreshBtn" class="btn">Refresh News ↻</button>
+      </div>
+      <div id="newsMessage" class="message" style="margin-top:12px">Loading latest headlines…</div>
+      <div id="newsResults" class="grid" style="margin-top:18px"></div>
+      <p class="notice">Headlines public RSS feeds se aati hain. Important news ko original publisher se verify karein.</p>
+    </section>
+
+    <section class="panel" id="videoResearch">
+      <div class="studio-head">
+        <div><h2>🔥 Viral Video Research</h2><p>YouTube videos aur publicly indexed Instagram Reels discover karo.</p></div>
+        <span class="tag">VIDEO DISCOVERY</span>
+      </div>
+      <div class="topic-row">
+        <select id="researchPlatform"><option value="youtube">YouTube Videos</option><option value="instagram">Instagram Reels</option></select>
+        <input id="researchQuery" placeholder="Topic search karo... jaise AI, Cricket, Tech" />
+        <button id="researchBtn" class="btn">Find Viral Videos 🔎</button>
+      </div>
+      <div id="researchMessage" class="message" style="margin-top:12px"></div>
+      <div id="researchResults" class="grid" style="margin-top:18px"></div>
+      <p class="notice">YouTube metrics public API statistics par based hain. Instagram results public indexed discovery hain; complete live trending feed nahi.</p>
+    </section>
+
+    <section class="panel" id="studio">
+      <div class="studio-head">
+        <div><h2>✦ AI Script Studio</h2><p>Turn a trend into a structured video script.</p></div>
+        <span class="tag">POWERED BY GEMINI</span>
+      </div>
+      <div class="studio-controls">
+        <div><label for="language">SCRIPT LANGUAGE</label><select id="language"><option>Hinglish</option><option>Hindi</option><option>English</option></select></div>
+        <div><label for="format">VIDEO FORMAT</label><select id="format"><option value="Shorts (60 seconds)">Shorts (60 seconds)</option><option value="Long video (5-10 minutes)">Long video (5–10 minutes)</option></select></div>
+      </div>
+      <label for="customTopic">TOPIC</label>
+      <div class="topic-row script-buttons"><input id="customTopic" placeholder="Choose a trend above or enter your own topic…" /><button id="generateBtn" class="btn">📝 Generate Script</button><button id="generateVoiceBtn" class="btn voice-btn">🎙️ Script + Voice</button></div>
+      <div class="voice-controls">
+        <div><label for="voiceGender">VOICE</label><select id="voiceGender"><option value="male" selected>Male — Hindi</option><option value="female">Female — Hindi</option></select></div>
+        <div><label for="voiceSpeed">SPEAKING SPEED · <span id="speedValue">100%</span></label><input id="voiceSpeed" type="range" min="50" max="150" value="100" /></div>
+        <div><label for="voicePitch">PITCH · <span id="pitchValue">0 semitones</span></label><input id="voicePitch" type="range" min="-6" max="6" value="0" /></div>
+        <div><label for="voiceVolume">VOLUME · <span id="volumeValue">100%</span></label><input id="voiceVolume" type="range" min="0" max="200" value="100" /></div>
+        <div class="voice-reset-wrap"><button id="resetVoiceBtn" class="btn secondary" type="button">↺ Reset voice settings</button></div>
+      </div>
+      <div id="audioPanel" class="audio-panel" hidden>
+        <div class="audio-title">🎧 Your voiceover is ready</div>
+        <audio id="voicePlayer" controls preload="none"></audio>
+        <a id="downloadAudio" class="btn secondary download-btn" download="trendradar-voice.mp3">⬇ Download audio</a>
+      </div>
+      <textarea id="scriptOutput" placeholder="Your AI-generated script will appear here…" spellcheck="false"></textarea>
+      <div class="output-actions"><div id="scriptMessage" class="message" role="status"></div><button id="copyBtn" class="btn secondary">Copy script</button></div>
+      <div id="visualTools" class="panel" style="margin-top:18px">
+        <div class="studio-head"><div><h2>🖼️ Script-to-Image Storyboard</h2><p>Generated script ke scenes ke hisaab se matching photos dhoondho aur select karo.</p></div><span class="tag">IMAGE STORYBOARD V1</span></div>
+        <button id="findVisualsBtn" class="btn" type="button">Find matching images ✨</button>
+        <div class="image-mode-panel" style="margin-top:14px">
+  <h3>Choose Image Source</h3>
+  <label><input type="radio" name="imageMode" value="internet" checked> 🌐 Internet Images</label>
+  <label><input type="radio" name="imageMode" value="ai"> ✨ Free AI Images (Cloudflare)</label>
+  <label><input type="radio" name="imageMode" value="upload"> 📁 Upload Own Images</label>
+  <p class="sub">AI images use Cloudflare FLUX free daily allowance when configured. Portrait composition is optimized for 9:16 Shorts.</p>
+        </div>
+        <div id="ownImageUpload" style="display:block;margin-top:12px">
+  <p class="sub">Har scene mein AI / Internet image ke saath apni photos bhi upload kar sakte hain.</p>
+</div>
+        <div id="visualMessage" class="message" role="status" style="margin-top:12px"></div>
+        <div id="visualScenes" class="grid" style="margin-top:16px"></div>
+        <div class="video-maker">
+          <h3>🎬 Automatic Video Maker V2 · Motion + Subtitles</h3>
+          <p>Selected images par automatic zoom-in / zoom-out motion, narration-timed scene subtitles aur Hindi voice ke saath vertical video banao. Rendering tumhare browser mein hogi; Render server par video processing load nahi padega.</p>
+          <div class="video-actions"><button id="createVideoBtn" class="btn" type="button">Create vertical video</button><span class="sub">9:16 · 720 × 1280 · browser rendering</span></div>
+          <div id="videoMessage" class="message" role="status" style="margin-top:10px">Pehle voiceover generate karo aur har scene ke liye image select karo.</div>
+          <video id="videoPreview" class="video-preview" controls playsinline hidden></video>
+          <a id="downloadVideo" class="btn secondary video-download" hidden>⬇ Download video</a>
+        </div>
+      </div>
+    </section>
+    <footer>TrendRadar AI · Built with public trend sources and Google Gemini · Keep your API keys on the server.</footer>
+  </main>
+
+<script>
+  const API_BASE = "https://trendradar-ai1.onrender.com".replace(/\/$/, "");
+  const $ = (id) => document.getElementById(id);
+  let currentTrends = [];
+
+  function apiUrl(path) { return API_BASE + path; }
+
+  // Backend heartbeat: green apple means /api/health responded successfully.
+  async function checkBackendConnection() {
+    const apple = $("connectionApple");    const dot = $("connectionDot");
+    if (!apple || !dot) return;
+    apple.textContent = "🍎";
+    apple.setAttribute("aria-label", "Checking connection");
+    dot.style.background = "#f0ad4e";
+    dot.style.boxShadow = "0 0 10px rgba(240,173,78,.35)";
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      let response;
+      try {
+        response = await fetch(apiUrl("/api/health"), {
+          method: "GET",
+          cache: "no-store",
+          headers: { "Accept": "application/json" },
+          signal: controller.signal
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
+      if (!response.ok) throw new Error("Health check failed");
+      const data = await response.json();
+      if (data.status !== "healthy") throw new Error("Backend not healthy");
+      apple.textContent = "🍏";
+      apple.setAttribute("aria-label", "Backend connected");
+      dot.style.background = "#22a06b";
+      dot.style.boxShadow = "0 0 10px rgba(34,160,107,.35)";
+      apple.title = "Backend connected";
+    } catch (error) {
+      apple.textContent = "🍎";
+      apple.setAttribute("aria-label", "Backend disconnected");
+      dot.style.background = "#dc5353";
+      dot.style.boxShadow = "0 0 10px rgba(220,83,83,.3)";
+      apple.title = "Backend disconnected — retrying automatically";
+    }
+  }
+
+  checkBackendConnection();
+  setInterval(checkBackendConnection, 30000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) checkBackendConnection();
+  });
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch]));
+  }
+
+  async function readJson(response) {
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail = data.detail ?? data.error ?? data.message ?? `Request failed (${response.status})`;
+      throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    }
+    return data;
+  }
+
+  function formatTime(value) {
+    if (!value) return "Just now";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "Just now" : date.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+  }
+
+  function renderTrends(trends) {
+    const grid = $("trendGrid");
+    grid.replaceChildren();
+    const displayLimit = Number($("trendLimit")?.value || 10);
+    const visibleTrends = trends.slice(0, displayLimit);
+    if (!visibleTrends.length) {
+      grid.innerHTML = '<div class="empty">No matching trends found. Try another keyword or region.</div>';
+      return;
+    }
+    visibleTrends.forEach((trend, index) => {
+      const title = trend.title || "Untitled trend";
+      const summary = trend.summary || "A topic appearing in public trend sources.";
+      const score = Number(trend.trend_score ?? trend.score ?? 0);
+      const sourceUrl = trend.source_url || trend.url || "";
+      const card = document.createElement("article");
+      card.className = "trend-card";
+      const top = document.createElement("div"); top.className = "card-top";
+      const tag = document.createElement("span"); tag.className = "tag"; tag.textContent = trend.category || trend.source || "Public signal";
+      const stageNames = {
+        emerging: "🌱 Emerging", rising: "📈 Rising", viral: "🔥 Viral",
+        declining: "📉 Declining", new: "🆕 New", stable: "Stable",
+        collecting: "⏳ Collecting signals"
+      };
+      const stage = document.createElement("span");
+      stage.className = "stage-badge stage-" + (trend.trend_stage || "collecting");
+      stage.textContent = stageNames[trend.trend_stage] || "⏳ Collecting signals";
+      const rank = document.createElement("span"); rank.className = "rank"; rank.textContent = `#${index + 1}`;
+      top.append(tag, stage, rank);
+      const heading = document.createElement("h3"); heading.textContent = title;
+      const desc = document.createElement("p"); desc.textContent = summary;
+      const whyBox = document.createElement("div");
+      whyBox.style.cssText = "margin:10px 0;padding:10px 12px;border-radius:10px;background:#f2f8fb;border:1px solid #dceaf0;font-size:12px;color:#40536b";
+      const whyTitle = document.createElement("strong"); whyTitle.textContent = "🔎 Why is it trending?";
+      const whyText = document.createElement("p");
+      whyText.style.cssText = "margin:5px 0 0;line-height:1.5";
+      whyText.textContent = trend.why_trending || "Search interest is rising, but Google Trends did not provide a clear related-news explanation for this keyword yet. Treat the reason as unconfirmed.";
+      whyBox.append(whyTitle, whyText);
+      const newsItems = Array.isArray(trend.related_news) ? trend.related_news : [];
+      newsItems.slice(0,3).forEach(news => {
+        if (news.url && /^https?:\/\//i.test(news.url)) {
+          const a = document.createElement("a"); a.className = "text-link";
+          a.href = news.url; a.target = "_blank"; a.rel = "noopener noreferrer";
+          a.textContent = (news.source ? news.source + ": " : "") + (news.title || "Related coverage");
+          a.style.cssText = "display:block;margin-top:6px";
+          whyBox.append(a);
+        }
+      });
+      const bottom = document.createElement("div"); bottom.className = "card-bottom";
+      const scoreEl = document.createElement("span"); scoreEl.className = "score"; scoreEl.textContent = `Signal score · ${Math.round(score)}/100`;
+      const actions = document.createElement("div"); actions.className = "card-actions";
+      if (sourceUrl && /^https?:\/\//i.test(sourceUrl)) {
+        const link = document.createElement("a"); link.className = "text-link"; link.href = sourceUrl; link.target = "_blank"; link.rel = "noopener noreferrer"; link.textContent = "View source ↗"; actions.append(link);
+      }
+      const make = document.createElement("button"); make.className = "mini-btn"; make.textContent = "Create script with this context →";
+      make.addEventListener("click", () => {
+        $("customTopic").value = title;
+        selectedTrendTopic = title;
+        selectedTrendContext = [
+          "Why trending: " + (trend.why_trending || "No clear related-news reason was supplied; do not guess."),
+          "Trend summary: " + summary,
+          "Related coverage: " + (newsItems.map(n => [n.source, n.title, n.snippet, n.url].filter(Boolean).join(" — ")).join("\n") || "No related news items supplied."),
+          "Source: " + (sourceUrl || "Not available")
+        ].join("\n");
+        $("studio").scrollIntoView({behavior:"smooth"}); $("customTopic").focus();
+        $("scriptMessage").textContent = "Trend context attached. AI Script Studio will use the reason and related coverage.";
+        $("scriptMessage").className = "message";
+      });
+      actions.append(make); bottom.append(scoreEl, actions);
+      card.append(top, heading, desc, whyBox, bottom); grid.append(card);
+    });
+  }
+
+  let currentOpportunities = [];
+
+  function renderOpportunities(items) {
+    const box = $("opportunityResults");
+    box.replaceChildren();
+    const limit = Number($("opportunityLimit").value || 10);
+    const visible = items.slice(0, limit);
+    if (!visible.length) {
+      box.innerHTML = '<div class="empty">No opportunities are available yet. Refresh trends and try again.</div>';
+      return;
+    }
+    visible.forEach((item, index) => {
+      const card = document.createElement("article");
+      card.className = "opportunity-card";
+      const top = document.createElement("div");
+      top.className = "opportunity-card-top";
+      const label = document.createElement("span");
+      label.className = "opportunity-label";
+      label.textContent = item.opportunity_label || "Monitor";
+      const score = document.createElement("strong");
+      score.className = "opportunity-score";
+      score.textContent = Math.round(Number(item.opportunity_score || 0)) + "/100";
+      top.append(label, score);
+      const title = document.createElement("h3");
+      title.textContent = "#" + (index + 1) + " · " + (item.title || "Untitled topic");
+      const summary = document.createElement("p");
+      summary.textContent = item.summary || "A topic appearing in public trend sources.";
+      const reasons = document.createElement("div");
+      reasons.className = "opportunity-reasons";
+      (item.opportunity_reasons || []).forEach(reason => {
+        const chip = document.createElement("span");
+        chip.textContent = reason;
+        reasons.append(chip);
+      });
+      const signal = document.createElement("p");
+      const parts = item.signals || {};
+      signal.textContent = "Interest " + (parts.audience_interest ?? "—") +
+        " · Momentum " + (parts.momentum ?? "—") +
+        " · Freshness " + (parts.freshness ?? "—");
+      const angle = document.createElement("p");
+      angle.textContent = "Suggested angle: " + (item.suggested_angle || "Explain what is happening and why it matters.");
+      const make = document.createElement("button");
+      make.type = "button";
+      make.className = "mini-btn";
+      make.textContent = "Create script from this topic →";
+      make.addEventListener("click", () => {
+        $("customTopic").value = item.title || "";
+        $("studio").scrollIntoView({behavior:"smooth"});
+        $("customTopic").focus();
+      });
+      card.append(top, title, summary, reasons, signal, angle, make);
+      box.append(card);
+    });
+  }
+
+  async function loadOpportunities() {
+    const button = $("opportunityRefreshBtn");
+    button.disabled = true;
+    button.textContent = "Analysing…";
+    $("opportunityMessage").textContent = "Analysing the existing trend feed. This can take a moment if the backend is waking up.";
+    $("opportunityMessage").className = "message";
+    $("opportunityRegion").textContent = $("region").selectedOptions[0]?.textContent || $("region").value;
+    try {
+      const params = new URLSearchParams({
+        region: $("region").value,
+        limit: "20",
+        category: $("opportunityCategory").value
+      });
+      const data = await readJson(await fetch(apiUrl("/api/opportunities?" + params.toString()), {
+        headers: {"Accept":"application/json"}
+      }));
+      currentOpportunities = Array.isArray(data.opportunities) ? data.opportunities : [];
+      renderOpportunities(currentOpportunities);
+      const categoryNote = data.selected_category && data.selected_category !== "All"
+        ? (data.category_research === "ok"
+          ? " · " + (data.category_research_count || 0) + " fresh category-search results checked"
+          : data.category_research === "no_results"
+            ? " · No fresh category-search results found in the last 7 days"
+            : data.category_research === "unavailable"
+              ? " · Category news search temporarily unavailable; showing matching existing trends only"
+              : "")
+        : "";
+      $("opportunityMessage").textContent = currentOpportunities.length
+        ? currentOpportunities.length + " opportunities ranked" + categoryNote + " · " + (data.methodology || "Based on available public trend signals.")
+        : (data.category_research === "unavailable"
+          ? "Category-specific news search is temporarily unavailable, and no matching topics were found in the existing trend feed."
+          : data.category_research === "no_results"
+            ? "No relevant topics found for this category in the current trend feed or recent category search. Try again later."
+            : "No opportunity data returned for this region.");
+      $("opportunityMessage").className = "message";
+    } catch (error) {
+      currentOpportunities = [];
+      renderOpportunities([]);
+      $("opportunityMessage").textContent = error.message + " · Try refreshing trends first.";
+      $("opportunityMessage").className = "message error";
+    } finally {
+      button.disabled = false;
+      button.textContent = "Find opportunities ✨";
+    }
+  }
+
+  let currentPredictions = [];
+
+  function renderPredictions(items) {
+    const box = $("predictionResults");
+    box.replaceChildren();
+    if (!items.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "No prediction signals available yet. Try again after more trend snapshots have been collected.";
+      box.append(empty);
+      return;
+    }
+    items.forEach((item, index) => {
+      const card = document.createElement("article");
+      card.className = "opportunity-card";
+      const top = document.createElement("div");
+      top.className = "opportunity-card-top";
+      const label = document.createElement("span");
+      label.className = "opportunity-label";
+      label.textContent = item.outlook_label || "Collecting signals";
+      const score = document.createElement("strong");
+      score.className = "opportunity-score";
+      score.textContent = item.projected_score !== null && item.projected_score !== undefined && Number.isFinite(Number(item.projected_score))
+        ? "Next " + item.projected_score + "/100"
+        : "—";
+      top.append(label, score);
+      const title = document.createElement("h3");
+      title.textContent = "#" + (index + 1) + " · " + (item.title || "Untitled topic");
+      const summary = document.createElement("p");
+      summary.textContent = item.explanation || "More snapshots are needed to estimate direction.";
+      const details = document.createElement("p");
+      const changes = Array.isArray(item.score_changes) && item.score_changes.length
+        ? item.score_changes.map(value => (value > 0 ? "+" : "") + value).join(" → ")
+        : "not enough data";
+      details.textContent = "Current " + (item.trend_score ?? "—") +
+        " · Recent changes " + changes +
+        " · Observations " + (item.observations ?? 0) +
+        " · Confidence " + (item.confidence || "low");
+      const make = document.createElement("button");
+      make.type = "button";
+      make.className = "mini-btn";
+      make.textContent = "Create script from this topic →";
+      make.addEventListener("click", () => {
+        $("customTopic").value = item.title || "";
+        $("studio").scrollIntoView({behavior:"smooth"});
+        $("customTopic").focus();
+      });
+      card.append(top, title, summary, details, make);
+      box.append(card);
+    });
+  }
+
+  async function loadPredictions() {
+    const button = $("predictionRefreshBtn");
+    button.disabled = true;
+    button.textContent = "Analysing…";
+    $("predictionMessage").textContent = "Comparing the recent snapshots already collected by TrendRadar…";
+    $("predictionMessage").className = "message";
+    $("predictionRegion").textContent = $("region").selectedOptions[0]?.textContent || $("region").value;
+    try {
+      const params = new URLSearchParams({region:$("region").value, limit:"20"});
+      const data = await readJson(await fetch(apiUrl("/api/predictions?" + params.toString()), {
+        headers: {"Accept":"application/json"}
+      }));
+      currentPredictions = Array.isArray(data.predictions) ? data.predictions : [];
+      renderPredictions(currentPredictions);
+      const collecting = currentPredictions.filter(item => item.prediction_status === "collecting").length;
+      $("predictionMessage").textContent = currentPredictions.length
+        ? currentPredictions.length + " topics analysed · " + collecting + " still collecting signals · " + (data.methodology || "")
+        : "No trend data returned for this region.";
+      $("predictionMessage").className = "message";
+    } catch (error) {
+      currentPredictions = [];
+      renderPredictions([]);
+      $("predictionMessage").textContent = error.message + " · Try refreshing trends first.";
+      $("predictionMessage").className = "message error";
+    } finally {
+      button.disabled = false;
+      button.textContent = "Analyse trend direction 📈";
+    }
+  }
+
+  async function loadTrends() {
+    const btn = $("refreshBtn");
+    btn.disabled = true; btn.textContent = "Loading…";
+    $("feedStatus").textContent = "Fetching public feeds…";
+    try {
+      const params = new URLSearchParams({region:$("region").value});
+      const keyword = $("keyword").value.trim();
+      if (keyword) params.set("q", keyword);
+      const data = await readJson(await fetch(apiUrl(`/api/trends?${params}`), {headers:{"Accept":"application/json"}}));
+      currentTrends = Array.isArray(data.trends) ? data.trends : [];
+      renderTrends(currentTrends);
+      $("topicsCount").textContent = data.count ?? currentTrends.length;
+      $("topSignal").textContent = currentTrends[0]?.title ? (currentTrends[0].title.length > 18 ? currentTrends[0].title.slice(0,18)+"…" : currentTrends[0].title) : "—";
+      $("lastUpdated").textContent = formatTime(data.updated_at);
+      $("sourceCount").textContent = `${(data.sources || []).length} source(s) checked`;
+      $("feedStatus").textContent = "Public feeds connected";
+    } catch (error) {
+      renderTrends([]);
+      $("topicsCount").textContent = "—"; $("topSignal").textContent = "—"; $("lastUpdated").textContent = "—";
+      $("feedStatus").textContent = "Feed unavailable";
+      $("sourceCount").textContent = "Could not load sources";
+      $("trendGrid").innerHTML = `<div class="empty">${escapeHtml(error.message)}<br><br>Check API_BASE, backend status, and CORS settings.</div>`;
+    } finally { btn.disabled = false; btn.textContent = "↻ Refresh trends"; }
+  }
+
+  let selectedTrendContext = "";
+  let selectedTrendTopic = "";
+  $("customTopic").addEventListener("input", () => { selectedTrendContext = ""; selectedTrendTopic = ""; });
+
+  async function requestScript(topic, language, button, withVoice = false) {
+    if (selectedTrendTopic !== topic) selectedTrendContext = "";
+    if (!topic) {
+      $("scriptMessage").textContent = "Please enter a topic first.";
+      $("scriptMessage").className = "message error";
+      return;
+    }
+    const originalText = button ? button.textContent : "";
+    if (button) { button.disabled = true; button.textContent = "Creating..."; }
+    $("scriptMessage").textContent = "AI is creating your complete video pack...";
+    $("scriptMessage").className = "message";
+    $("studio").scrollIntoView({behavior:"smooth"});
+    try {
+      const data = await readJson(await fetch(apiUrl("/api/script"), {
+        method:"POST",
+        headers:{"Content-Type":"application/json","Accept":"application/json"},
+        body:JSON.stringify({topic, language, format:$("format").value, trend_context:selectedTrendContext})
+      }));
+      $("customTopic").value = topic;
+      $("language").value = language;
+      $("scriptOutput").value = data.script || "";
+      $("scriptMessage").textContent = "Complete Video Pack Ready!";
+      $("scriptMessage").className = "message";
+      $("scriptOutput").scrollIntoView({behavior:"smooth", block:"center"});
+      if (withVoice) await generateVoiceFromScript(data.script || "", language);
+    } catch (error) {
+      $("scriptMessage").textContent = error.message;
+      $("scriptMessage").className = "message error";
+    } finally {
+      if (button) { button.disabled = false; button.textContent = originalText; }
+    }
+  }
+
+
+  let selectedVisuals = {};
+  let storyboardScenes = [];
+  function toggleImageUpload() {
+    const mode = document.querySelector('input[name="imageMode"]:checked')?.value || "internet";
+
+    // Show only the controls for the selected source, separately inside each scene.
+    document.querySelectorAll(".ai-image-button").forEach(button => {
+      button.hidden = mode !== "ai";
+    });
+    document.querySelectorAll(".internet-image-choice").forEach(button => {
+      button.hidden = mode !== "internet";
+    });
+    document.querySelectorAll(".own-image-upload").forEach(label => {
+      label.hidden = mode !== "upload";
+    });
+
+    if (mode === "upload" && !document.querySelector(".own-image-upload")) {
+      $("visualMessage").textContent = "Scene-wise upload buttons dikhane ke liye pehle “Find matching images ✨” par click karein.";
+      $("visualMessage").className = "message";
+    }
+  }
+
+  document.querySelectorAll('input[name="imageMode"]').forEach(input => {
+    input.addEventListener("change", toggleImageUpload);
+  });
+async function generateAiImage(prompt) {
+  // Current backend returns the completed image directly (no polling/request_id).
+  const data = await readJson(await fetch(apiUrl("/api/ai-image"), {
+    method: "POST",
+    headers: {"Content-Type": "application/json", "Accept": "application/json"},
+    body: JSON.stringify({prompt})
+  }));
+
+  if (data.status === "done" && data.image_url) {
+    return data.image_url;
+  }
+
+  throw new Error(data.detail || "AI image generate nahi hui. Baad mein retry karein.");
+}
+  async function findScriptVisuals() {
+    const script = $("scriptOutput").value.trim();
+    const topic = $("customTopic").value.trim() || "Video";
+    if (script.length < 20) {
+      $("visualMessage").textContent = "Pehle AI script generate ya paste karein.";
+      $("visualMessage").className = "message error";
+      return;
+    }
+    const button = $("findVisualsBtn");
+    button.disabled = true;
+    button.textContent = "Finding images…";
+    $("visualMessage").textContent = "AI script ko scenes mein divide kar raha hai aur relevant photos search ho rahi hain…";
+    $("visualMessage").className = "message";
+    $("visualScenes").replaceChildren();
+    selectedVisuals = {};
+    try {
+      const data = await readJson(await fetch(apiUrl("/api/visuals"), {
+        method:"POST",
+        headers:{"Content-Type":"application/json","Accept":"application/json"},
+        body:JSON.stringify({script:getSubtitleNarrationText(script), topic})
+      }));
+      const scenes = Array.isArray(data.scenes) ? data.scenes : [];
+      if (!scenes.length) throw new Error("Is script ke liye scenes nahi mile.");
+      storyboardScenes = scenes;
+      scenes.forEach(scene => {
+        const card = document.createElement("article");
+        card.className = "visual-scene";
+        const heading = document.createElement("h3");
+        heading.textContent = `Scene ${scene.scene}: ${scene.visual || "Suggested visual"}`;
+        const narration = document.createElement("p");
+        narration.textContent = scene.narration || "";
+        const query = document.createElement("div");
+        query.className = "sub";
+        query.textContent = `Image search: ${scene.search_query || topic}`;
+        const images = document.createElement("div");
+        images.className = "visual-images";
+        const aiButton = document.createElement("button");
+aiButton.type = "button";
+aiButton.className = "btn secondary ai-image-button";
+aiButton.textContent = "✨ Generate AI Image";
+
+aiButton.addEventListener("click", async () => {
+  aiButton.disabled = true;
+  aiButton.textContent = "Generating...";
+
+  try {
+    const prompt = `${scene.visual || scene.search_query || topic}, realistic cinematic portrait photograph, vertical 9:16 composition, tall framing, subject centered, important details within the central vertical area, no text, no watermark`;
+    const imageUrl = await generateAiImage(prompt);
+
+    const item = {
+      image_url: imageUrl,
+      title: "AI Generated Image",
+      provider: data.provider || "AI Generated"
+    };
+
+    const choice = document.createElement("button");
+    choice.type = "button";
+    choice.className = "visual-choice";
+
+    const img = document.createElement("img");
+    img.src = imageUrl;
+    img.alt = item.title;
+
+    const title = document.createElement("span");
+    title.textContent = item.title;
+
+    choice.append(img, title);
+
+    choice.addEventListener("click", () => {
+      const current = Array.isArray(selectedVisuals[scene.scene])
+        ? selectedVisuals[scene.scene]
+        : [];
+      const exists = current.some(selected => selected.image_url === item.image_url);
+
+      if (exists) {
+        selectedVisuals[scene.scene] = current.filter(
+          selected => selected.image_url !== item.image_url
+        );
+        choice.classList.remove("selected");
+      } else {
+        selectedVisuals[scene.scene] = [...current, item];
+        choice.classList.add("selected");
+      }
+
+      if (!selectedVisuals[scene.scene].length) {
+        delete selectedVisuals[scene.scene];
+      }
+      updateVisualSelectionStatus();
+    });
+
+    images.append(choice);
+    aiButton.textContent = "✨ Generate Another";
+  } catch (error) {
+    aiButton.textContent = "Retry AI Image";
+    $("visualMessage").textContent = error.message;
+  } finally {
+    aiButton.disabled = false;
+  }
+});
+        const options = Array.isArray(scene.images) ? scene.images : [];
+        if (!options.length) {
+          const empty = document.createElement("p");
+          empty.textContent = "Is scene ke liye image nahi mili. Search phrase badal kar retry karein.";
+          images.append(empty);
+        }
+        options.forEach((item, index) => {
+          const choice = document.createElement("button");
+          choice.type = "button";
+          choice.className = "visual-choice internet-image-choice";
+          const img = document.createElement("img");
+          img.loading = "lazy";          img.alt = item.title || scene.visual || "Suggested scene image";
+          // Try the server-side image proxy first (avoids many hotlink/CORS issues).
+          // If the source host is not supported by the proxy, try the original URL.
+          const originalImageUrl = item.image_url;
+          const isLocalImage = originalImageUrl.startsWith("/") ||
+            originalImageUrl.startsWith("blob:") || originalImageUrl.startsWith("data:");
+          img.dataset.proxyFallbackTried = "false";
+          img.onerror = () => {
+            if (!isLocalImage && img.dataset.proxyFallbackTried === "false") {
+              img.dataset.proxyFallbackTried = "true";
+              img.src = originalImageUrl;
+              return;
+            }
+            // Never leave a broken-image icon in the scene grid.
+            const selected = Array.isArray(selectedVisuals[scene.scene])
+              ? selectedVisuals[scene.scene] : [];
+            selectedVisuals[scene.scene] = selected.filter(entry =>
+              entry.image_url !== originalImageUrl
+            );
+            if (!selectedVisuals[scene.scene].length) delete selectedVisuals[scene.scene];
+            choice.remove();
+            updateVisualSelectionStatus();
+          };
+          img.src = isLocalImage
+            ? (originalImageUrl.startsWith("/") ? apiUrl(originalImageUrl) : originalImageUrl)
+            : apiUrl("/api/image-proxy?url=" + encodeURIComponent(originalImageUrl));
+          const title = document.createElement("span");
+          title.textContent = item.title || `Image ${index + 1}`;
+          choice.append(img, title);
+          choice.addEventListener("click", () => {
+            const current = Array.isArray(selectedVisuals[scene.scene]) ? selectedVisuals[scene.scene] : [];
+            const exists = current.some(selected => selected.image_url === item.image_url);
+            if (exists) {
+              selectedVisuals[scene.scene] = current.filter(selected => selected.image_url !== item.image_url);
+              choice.classList.remove("selected");
+            } else {
+              selectedVisuals[scene.scene] = [...current, item];
+              choice.classList.add("selected");
+            }
+            if (!selectedVisuals[scene.scene].length) delete selectedVisuals[scene.scene];
+            updateVisualSelectionStatus();
+          });
+          images.append(choice);
+        });
+        const uploadLabel = document.createElement("div");
+        uploadLabel.className = "own-image-upload";
+        uploadLabel.style.cssText = "display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px";
+        const uploadButton = document.createElement("button");
+        uploadButton.type = "button";
+        uploadButton.className = "btn secondary";
+        uploadButton.textContent = "📁 Upload your image(s)";
+        const uploadInput = document.createElement("input");
+        uploadInput.type = "file";
+        uploadInput.accept = "image/*";
+        uploadInput.multiple = true;
+        uploadInput.hidden = true;
+        uploadButton.addEventListener("click", () => uploadInput.click());
+
+        uploadInput.addEventListener("change", async () => {
+          const files = Array.from(uploadInput.files || []).filter(file => file.type.startsWith("image/"));
+          if (!files.length) {
+            uploadInput.value = "";
+            return;
+          }
+
+          // Convert uploads to self-contained data URLs. This avoids Android
+          // browser Blob URL lifetime/origin issues during later video rendering.
+          const readAsDataUrl = file => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve({
+              image_url: String(reader.result || ""),
+              title: file.name,
+              provider: "Your Upload"
+            });
+            reader.onerror = () => reject(new Error("Photo read nahi ho payi: " + file.name));
+            reader.readAsDataURL(file);
+          });
+
+          uploadButton.disabled = true;
+          uploadButton.textContent = "Reading photo(s)…";
+          try {
+            const uploaded = await Promise.all(files.map(readAsDataUrl));
+            const sceneKey = String(scene.scene);
+
+            // Read the latest selection after file conversion so repeated
+            // uploads to the same scene never overwrite earlier selections.
+            const current = Array.isArray(selectedVisuals[sceneKey])
+              ? selectedVisuals[sceneKey]
+              : [];
+            const additions = uploaded.filter(item =>
+              !current.some(existing => existing.image_url === item.image_url)
+            );
+
+            additions.forEach(item => {
+              const choice = document.createElement("button");
+              choice.type = "button";
+              choice.className = "visual-choice selected";
+              const img = document.createElement("img");
+              img.src = item.image_url;
+              img.alt = item.title;
+              const title = document.createElement("span");
+              title.textContent = "📁 " + item.title;
+              choice.append(img, title);
+              choice.addEventListener("click", () => {
+                const selected = Array.isArray(selectedVisuals[sceneKey])
+                  ? selectedVisuals[sceneKey]
+                  : [];
+                const exists = selected.some(entry => entry.image_url === item.image_url);
+                if (exists) {
+                  selectedVisuals[sceneKey] = selected.filter(entry => entry.image_url !== item.image_url);
+                  choice.classList.remove("selected");
+                } else {
+                  selectedVisuals[sceneKey] = [...selected, item];
+                  choice.classList.add("selected");
+                }
+                if (!selectedVisuals[sceneKey].length) delete selectedVisuals[sceneKey];
+                updateVisualSelectionStatus();
+              });
+              images.append(choice);
+            });
+
+            selectedVisuals[sceneKey] = [...current, ...additions];
+            updateVisualSelectionStatus();
+          } catch (error) {
+            $("visualMessage").textContent = error.message || "Uploaded photo read nahi ho payi.";
+            $("visualMessage").className = "message error";
+          } finally {
+            uploadButton.disabled = false;
+            uploadButton.textContent = "📁 Upload your image(s)";
+            uploadInput.value = "";
+          }
+        });
+
+        uploadLabel.append(uploadButton, uploadInput);
+        const credit = document.createElement("div");
+        credit.className = "visual-credit";
+        credit.textContent = options.length
+          ? `Source: ${options[0].provider || "Image provider"} · License: ${options[0].license} · Creator: ${options[0].artist} · Tap multiple photos to select/deselect.`
+          : "No image result available.";
+        card.append(heading, narration, query, images, aiButton, uploadLabel, credit);
+        $("visualScenes").append(card);
+        toggleImageUpload();
+      });
+      const count = scenes.reduce((sum, scene) => sum + (scene.images || []).length, 0);
+      $("visualMessage").textContent = `${scenes.length} scenes ready · ${count} photo options found. Tap one or more photos in every scene.`;
+      $("visualMessage").className = "message";
+      $("visualTools").scrollIntoView({behavior:"smooth", block:"start"});
+    } catch (error) {
+      $("visualMessage").textContent = error.message;
+      $("visualMessage").className = "message error";
+    } finally {
+      button.disabled = false;
+      button.textContent = "Find matching images ✨";
+    }
+  }
+
+  function updateVisualSelectionStatus() {
+    const missing = storyboardScenes.filter(scene => !(selectedVisuals[scene.scene] || []).length).map(scene => scene.scene);
+    const selectedCount = Object.values(selectedVisuals).reduce((sum, items) => sum + (Array.isArray(items) ? items.length : 0), 0);
+    const status = missing.length
+      ? ` ${selectedCount} photos selected · Scene(s) ${missing.join(", ")} need at least one photo.`
+      : ` ${selectedCount} photos selected across all scenes.`;
+    const message = $("visualMessage");
+    message.textContent = `${storyboardScenes.length} scenes ready · ${storyboardScenes.reduce((sum, scene) => sum + (scene.images || []).length, 0)} photo options found.${status}`;
+    message.className = missing.length ? "message error" : "message";
+  }
+
+  $("findVisualsBtn").addEventListener("click", findScriptVisuals);
+
+  async function loadCanvasImage(url) {
+    const isLocalObject = url.startsWith("blob:") || url.startsWith("data:");
+
+    // Phone-uploaded images are already local Blob/Data URLs created by this
+    // page. Decode them directly; fetching a blob URL from a saved file://
+    // page can fail in mobile browsers because its origin is opaque.
+    if (isLocalObject) {
+      const localImage = new Image();
+      await new Promise((resolve, reject) => {
+        localImage.onload = resolve;
+        localImage.onerror = () => reject(new Error("Uploaded image load nahi hui. Dobara upload karke retry karein."));
+        localImage.src = url;
+      });
+      // onload means bytes arrived; decode() ensures the pixels are ready before canvas recording.
+      if (typeof localImage.decode === "function") {
+        try { await localImage.decode(); } catch (error) {
+          if (!localImage.naturalWidth || !localImage.naturalHeight) throw new Error("Uploaded image decode nahi hui. Dobara upload karke retry karein.");
+        }
+      }
+      if (!localImage.naturalWidth || !localImage.naturalHeight) throw new Error("Uploaded image valid nahi hai. Dobara upload karke retry karein.");
+      return localImage;
+    }
+
+    const finalUrl = url.startsWith("/")
+      ? apiUrl(url)
+      : apiUrl("/api/image-proxy?url=" + encodeURIComponent(url));
+
+    // Remote images are fetched through the API proxy and decoded from bytes,
+    // so drawing them never taints the canvas.
+    let response;
+    try {
+      response = await fetch(finalUrl, {
+        method: "GET",
+        mode: "cors",
+        credentials: "omit",
+        cache: "no-store"
+      });
+    } catch (error) {
+      throw new Error("Internet image server se connect nahi ho paya. Internet connection check karein ya dusri image select karein.");
+    }
+    if (!response.ok) {
+      throw new Error("Internet image load nahi hui (HTTP " + response.status + "). Dusri image select karke retry karein.");
+    }
+    const blob = await response.blob();
+    if (!blob.type.startsWith("image/")) {
+      throw new Error("Selected file valid image nahi hai. Dusri image select karke retry karein.");
+    }
+    if ("createImageBitmap" in window) return await createImageBitmap(blob);
+
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const img = new Image();
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = () => reject(new Error("Internet image decode nahi hui."));
+        img.src = objectUrl;
+      });
+      return img;
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+
+  function getSubtitleChunk(caption, progress) {
+    const words = String(caption || "").trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return "";
+    const chunks = [];
+    for (let i = 0; i < words.length; i += 6) chunks.push(words.slice(i, i + 6).join(" "));
+    const index = Math.min(chunks.length - 1, Math.floor(Math.max(0, Math.min(.999, progress)) * chunks.length));
+    return chunks[index];
+  }
+
+  function drawVideoFrame(ctx, image, caption, sceneNumber, totalScenes, width, height, progress = 0, zoomIn = true, subtitleProgress = progress) {
+    ctx.fillStyle = "#101827";
+    ctx.fillRect(0, 0, width, height);
+
+    // Ken Burns motion: alternate a gentle push-in and pull-out for every selected image.
+    const cover = Math.max(width / image.width, height / image.height);
+    const motion = zoomIn ? 1 + .12 * progress : 1.12 - .12 * progress;
+    const scale = cover * motion;
+    const drawWidth = image.width * scale;
+    const drawHeight = image.height * scale;
+    const drift = Math.sin(progress * Math.PI) * Math.min(18, width * .025) * (sceneNumber % 2 ? 1 : -1);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, width, height);
+    ctx.clip();
+    ctx.drawImage(image, (width - drawWidth) / 2 + drift, (height - drawHeight) / 2, drawWidth, drawHeight);
+    ctx.restore();
+
+    ctx.fillStyle = "rgba(4,12,24,.26)";
+    ctx.fillRect(0, 0, width, height);
+    const grad = ctx.createLinearGradient(0, height * .45, 0, height);
+    grad.addColorStop(0, "rgba(0,0,0,0)");
+    grad.addColorStop(1, "rgba(0,0,0,.78)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.fillStyle = "rgba(7,143,145,.96)";
+    ctx.fillRect(34, 48, 235, 46);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 23px Arial, sans-serif";
+    ctx.fillText("TRENDRADAR AI", 49, 78);
+
+    // Scene counter remains small so the narration subtitle is the visual focus.
+    ctx.font = "600 18px Arial, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,.9)";
+    ctx.fillText(`SCENE ${sceneNumber} / ${totalScenes}`, 38, height - 150);
+
+    const subtitle = getSubtitleChunk(caption, subtitleProgress);
+    if (subtitle) {
+      const maxWidth = width - 76;
+      ctx.font = "bold 32px 'Noto Sans Devanagari', 'Arial', sans-serif";
+      const words = subtitle.split(/\s+/);
+      const lines = [];
+      let line = "";
+      for (const word of words) {
+        const candidate = line ? line + " " + word : word;
+        if (ctx.measureText(candidate).width > maxWidth && line) {
+          lines.push(line);
+          line = word;
+        } else line = candidate;
+      }
+      if (line) lines.push(line);
+      const visible = lines.slice(0, 2);
+      const lineHeight = 44;
+      const boxHeight = visible.length * lineHeight + 34;
+      const boxY = height - 112 - boxHeight;
+      const boxWidth = Math.min(maxWidth + 22, Math.max(...visible.map(lineText => ctx.measureText(lineText).width)) + 44);
+      const boxX = (width - boxWidth) / 2;
+      ctx.fillStyle = "rgba(5,14,27,.84)";
+      ctx.beginPath();
+      ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 15);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.textAlign = "center";
+      ctx.shadowColor = "rgba(0,0,0,.55)";
+      ctx.shadowBlur = 5;
+      visible.forEach((lineText, index) => ctx.fillText(lineText, width / 2, boxY + 27 + (index + 1) * lineHeight - 8));
+      ctx.shadowBlur = 0;
+      ctx.textAlign = "left";
+    }
+  }
+
+  async function createBrowserVideo() {
+    const button = $("createVideoBtn");
+    const message = $("videoMessage");
+    const missingScenes = storyboardScenes.filter(scene => !(selectedVisuals[scene.scene] || []).length).map(scene => scene.scene);
+    if (!storyboardScenes.length || missingScenes.length) throw new Error(missingScenes.length ? `Scene ${missingScenes.join(", ")} ke liye kam se kam ek photo select karo.` : "Pehle Find matching images dabao.");
+    // Build the render queue in storyboard order and normalize scene keys.
+    // This guarantees each uploaded photo stays attached to its own scene.
+    const chosen = storyboardScenes.flatMap(scene => {
+      const sceneImages = selectedVisuals[String(scene.scene)] || selectedVisuals[scene.scene] || [];
+      return sceneImages.map(image => ({scene, image}));
+    });
+    if (!currentAudioBlob) throw new Error("Pehle Hindi voiceover generate karo. Script + Voice button use kar sakte ho.");
+    if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) throw new Error("Is browser mein video recording support nahi hai. Chrome ka latest version try karein.");
+    button.disabled = true;
+    $("downloadVideo").hidden = true;
+    $("videoPreview").hidden = true;
+    message.textContent = "Images load ho rahi hain…";
+    message.className = "message";
+    let audioContext;
+    let videoUrl = null;
+    try {
+      const loaded = await Promise.all(chosen.map(async item => ({...item, bitmap:await loadCanvasImage(item.image.image_url)})));
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      await audioContext.resume();
+      const audioBuffer = await audioContext.decodeAudioData(await currentAudioBlob.arrayBuffer());
+      const audioDestination = audioContext.createMediaStreamDestination();
+      const audioSource = audioContext.createBufferSource();
+      audioSource.buffer = audioBuffer;
+      audioSource.connect(audioDestination);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = 720; canvas.height = 1280;
+      const ctx = canvas.getContext("2d", { alpha: false });
+      if (!ctx) throw new Error("Video canvas start nahi ho paya. Chrome mein dobara try karein.");
+
+      // Allocate voice duration to each storyboard scene by narration length.
+      // Multiple selected images within a scene share that scene's time evenly.
+      const timeline = storyboardScenes.map((scene, sceneIndex) => {
+        const items = loaded.filter(item => String(item.scene.scene) === String(scene.scene));
+        const narration = String(scene.narration || "").trim();
+        const wordCount = narration ? narration.split(/\s+/).filter(Boolean).length : 1;
+        return {scene, sceneIndex, items, narration, weight: Math.max(1, wordCount)};
+      }).filter(entry => entry.items.length);
+      const totalWeight = timeline.reduce((sum, entry) => sum + entry.weight, 0);
+      let cursor = 0;
+      timeline.forEach(entry => {
+        entry.start = cursor;
+        entry.duration = audioBuffer.duration * entry.weight / totalWeight;
+        cursor += entry.duration;
+        entry.end = cursor;
+      });
+      const firstEntry = timeline[0];
+      // Paint a real frame BEFORE starting canvas capture. Some Android browsers
+      // otherwise start recording the audio while the video track stays black.
+      drawVideoFrame(ctx, firstEntry.items[0].bitmap, firstEntry.narration,
+        firstEntry.sceneIndex + 1, storyboardScenes.length, canvas.width, canvas.height, 0, true);
+      const canvasStream = canvas.captureStream(30);
+      const videoTrack = canvasStream.getVideoTracks()[0];
+      if (!videoTrack) throw new Error("Browser ne video track create nahi ki. Chrome update karke retry karein.");
+      const combined = new MediaStream([...canvasStream.getVideoTracks(), ...audioDestination.stream.getAudioTracks()]);
+      const mimeCandidates = ["video/mp4;codecs=h264,aac", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
+      const mimeType = mimeCandidates.find(type => MediaRecorder.isTypeSupported(type)) || "";
+      const recorder = new MediaRecorder(combined, mimeType ? {mimeType} : undefined);
+      const chunks = [];
+      recorder.ondataavailable = event => { if (event.data && event.data.size) chunks.push(event.data); };
+      const finished = new Promise((resolve, reject) => {
+        recorder.onstop = resolve;
+        recorder.onerror = () => reject(new Error("Browser video recording failed. Please retry."));
+      });
+      const duration = audioBuffer.duration;
+      const start = performance.now();
+      let renderTimer = null;
+      const paint = () => {
+        const elapsed = Math.min((performance.now() - start) / 1000, duration);
+        const entry = timeline.find(item => elapsed < item.end) || timeline[timeline.length - 1];
+        const sceneProgress = Math.max(0, Math.min(1, (elapsed - entry.start) / entry.duration));
+        const imageDuration = entry.duration / entry.items.length;
+        const imageIndex = Math.min(entry.items.length - 1, Math.floor((elapsed - entry.start) / imageDuration));
+        const imageProgress = Math.max(0, Math.min(1,
+          ((elapsed - entry.start) - imageIndex * imageDuration) / imageDuration));
+        const selected = entry.items[imageIndex];
+        const globalImageIndex = timeline.slice(0, entry.sceneIndex).reduce((sum, item) => sum + item.items.length, 0) + imageIndex;
+        drawVideoFrame(ctx, selected.bitmap, entry.narration,
+          entry.sceneIndex + 1, storyboardScenes.length, canvas.width, canvas.height,
+          imageProgress, globalImageIndex % 2 === 0, sceneProgress);
+        if (typeof videoTrack.requestFrame === "function") videoTrack.requestFrame();
+        const percent = Math.min(99, Math.floor(elapsed / duration * 100));
+        message.textContent = `Video edit ho rahi hai… ${percent}% · Zoom motion + scene subtitles`;
+        if (elapsed >= duration && renderTimer !== null) {
+          clearInterval(renderTimer);
+          renderTimer = null;
+        }
+      };
+      // Start recording only after every image has loaded and decoded and the first
+      // frame is already painted. Start audio immediately after MediaRecorder starts.
+      recorder.start(250);
+      paint();
+      renderTimer = setInterval(paint, 33);
+      audioSource.start();
+      await new Promise(resolve => setTimeout(resolve, Math.ceil(duration * 1000) + 700));
+      if (renderTimer !== null) clearInterval(renderTimer);
+      renderTimer = null;
+      // Ensure the final scene is painted before stopping the recorder.
+      const lastEntry = timeline[timeline.length - 1];
+      const lastItem = lastEntry.items[lastEntry.items.length - 1];
+      drawVideoFrame(ctx, lastItem.bitmap, lastEntry.narration,
+        lastEntry.sceneIndex + 1, storyboardScenes.length, canvas.width, canvas.height, 1,
+        (loaded.length - 1) % 2 === 0, 1);
+      if (typeof videoTrack.requestFrame === "function") videoTrack.requestFrame();
+      if (recorder.state !== "inactive") recorder.stop();
+      await finished;
+      audioSource.disconnect();
+      combined.getTracks().forEach(track => track.stop());
+      const type = mimeType.startsWith("video/mp4") ? "video/mp4" : "video/webm";
+      const extension = type === "video/mp4" ? "mp4" : "webm";
+      const blob = new Blob(chunks, {type});
+      if (!blob.size) throw new Error("Video file empty bani. Browser mein dobara try karein.");
+      if (currentVideoUrl) URL.revokeObjectURL(currentVideoUrl);
+      videoUrl = URL.createObjectURL(blob);
+      currentVideoUrl = videoUrl;
+      const preview = $("videoPreview");
+      preview.src = videoUrl;
+      preview.hidden = false;
+      const download = $("downloadVideo");
+      download.href = videoUrl;
+      download.download = "trendradar-ai-video." + extension;
+      download.textContent = `⬇ Download ${extension.toUpperCase()} video`;
+      download.hidden = false;
+      message.textContent = `Video ready! ${Math.round(duration)} sec · ${extension.toUpperCase()} · ${Math.round(blob.size / 1024 / 1024 * 10) / 10} MB. Preview karo aur download kar lo.`;
+      preview.scrollIntoView({behavior:"smooth", block:"center"});
+    } finally {
+      if (audioContext && audioContext.state !== "closed") await audioContext.close().catch(() => {});
+      button.disabled = false;
+    }
+  }
+
+  $("createVideoBtn").addEventListener("click", async () => {
+    try { await createBrowserVideo(); }
+    catch (error) { $("videoMessage").textContent = error.message || "Video create nahi ho paya."; $("videoMessage").className = "message error"; $("createVideoBtn").disabled = false; }
+  });
+
+  async function generateScript() {
+    await requestScript($("customTopic").value.trim(), $("language").value, $("generateBtn"), false);
+  }
+
+  let currentAudioUrl = null;
+  let currentAudioBlob = null;
+  let currentVideoUrl = null;
+
+  function getNarrationText(fullScript) {
+    // Voiceover speaks only these sections, once each, in this order:
+    // Catchy Title -> Complete Video Script -> Call to Action.
+    // Opening Hook, Thumbnail Text and Video Description are never narrated separately.
+    const lines = String(fullScript || "").replace(/\r/g, "").split("\n");
+    const heading = /^\s*(?:#{1,6}\s*)?(?:\d+\s*[.)]\s*)?(?:[-*•]+\s*)?(?:\*\*|__)?\s*(CATCHY\s+TITLE|TITLE|OPENING\s+HOOK|HOOK|INTRO|COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCRIPT\s+NARRATION|SCENE[- ]BY[- ]SCENE\s+VISUAL(?:\s+SUGGESTIONS)?|VISUAL\s+SUGGESTIONS|VISUAL\s+DIRECTION|THUMBNAIL\s+TEXT|VIDEO\s+DESCRIPTION|HASHTAGS|CALL\s+TO\s+ACTION|TAGS)\b.*$/i;
+    const wanted = [
+      { name: "title", re: /^\s*(?:#{1,6}\s*)?(?:\d+\s*[.)]\s*)?(?:[-*•]+\s*)?(?:\*\*|__)?\s*(?:CATCHY\s+TITLE|TITLE)\b/i },
+      { name: "script", re: /^\s*(?:#{1,6}\s*)?(?:\d+\s*[.)]\s*)?(?:[-*•]+\s*)?(?:\*\*|__)?\s*(?:COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCRIPT\s+NARRATION)\b/i },
+      { name: "cta", re: /^\s*(?:#{1,6}\s*)?(?:\d+\s*[.)]\s*)?(?:[-*•]+\s*)?(?:\*\*|__)?\s*CALL\s+TO\s+ACTION\b/i }
+    ];
+    const sections = { title: [], script: [], cta: [] };
+    const seen = new Set();
+    let current = "";
+    let foundScript = false;
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line) continue;
+      if (heading.test(line)) {
+        const key = wanted.find(item => item.re.test(line));
+        current = key && !seen.has(key.name) ? key.name : "";
+        if (current) seen.add(current);
+        if (current === "script") foundScript = true;
+        continue;
+      }
+      if (!current) continue;
+      if (/^\[.*\]$/.test(line) || /^\(.*(?:music|sound|camera|visual|cut to|show|zoom|fade).*\)$/i.test(line)) continue;
+      const cleaned = line
+        .replace(/^\s*(?:[-*•]+\s*)?(?:\d{1,2}:\d{2}(?::\d{2})?\s*[-–—:]?\s*)/, "")
+        .replace(/^\s*(?:\*\*|__)?(?:NARRATOR|VOICEOVER|VO)\s*[:：-]\s*/i, "")
+        .replace(/\*\*/g, "")
+        .replace(/^[-*•]+\s*/, "")
+        .trim();
+      if (cleaned && /[\u0900-\u097F]/.test(cleaned)) sections[current].push(cleaned);
+    }
+    // If section headings are absent, keep the existing safe fallback behavior.
+    if (!foundScript) {
+      const fallback = lines.map(line => line.trim()).filter(line =>
+        line && !heading.test(line) && !/^\[.*\]$/.test(line) && /[\u0900-\u097F]/.test(line)
+      );
+      sections.script = fallback;
+    }
+    return [...sections.title, ...sections.script, ...sections.cta]
+      .join("\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 12000);
+  }
+
+  function getSubtitleNarrationText(fullScript) {
+    // Subtitles must use exactly the same allowed sections and de-duplication
+    // rules as voiceover: Catchy Title, Complete Video Script and CTA once each.
+    // Opening Hook, Thumbnail Text and Video Description are excluded.
+    return getNarrationText(fullScript);
+  }
+
+  async function generateVoiceFromScript(fullScript, language) {
+    const button = $("generateVoiceBtn");
+    const narration = getNarrationText(fullScript);
+    if (language !== "Hindi") throw new Error("Voice abhi Hindi (Devanagari) ke liye hai. Script Language ko Hindi select karein.");
+    if (narration.length < 20) throw new Error("Hindi narration nahi mil paya. Script mein COMPLETE VIDEO SCRIPT heading aur Devanagari Hindi dialogue check karein, phir dobara try karein.");    if (!/[\u0900-\u097F]/.test(narration)) throw new Error("Voice ke liye Hindi text Devanagari mein hona chahiye, jaise: नमस्ते दोस्तों।");
+    button.disabled = true;
+    button.textContent = "🎙️ Creating voice…";
+    $("scriptMessage").textContent = "Hindi voice ban rahi hai… thoda wait karein (10-30 second lag sakte hain).";
+    $("scriptMessage").className = "message";
+    $("audioPanel").hidden = true;
+    try {
+      const response = await fetch(apiUrl("/api/voice"), {
+        method:"POST",
+        headers:{"Content-Type":"application/json","Accept":"audio/*"},
+        body:JSON.stringify({
+          text:narration,
+          language,
+          gender:$("voiceGender").value,
+          speed:Number($("voiceSpeed").value),
+          pitch:Number($("voicePitch").value),
+          volume:Number($("voiceVolume").value)
+        })
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || "Voice generation failed.");
+      }
+      const audioBlob = await response.blob();
+      if (!audioBlob.size) throw new Error("Audio file is empty. Please retry.");
+      if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
+      currentAudioBlob = audioBlob;
+      currentAudioUrl = URL.createObjectURL(audioBlob);
+      $("voicePlayer").src = currentAudioUrl;
+      $("downloadAudio").href = currentAudioUrl;
+      $("downloadAudio").download = /wav/i.test(audioBlob.type) ? "trendradar-voice.wav" : "trendradar-voice.mp3";
+      $("audioPanel").hidden = false;
+      $("scriptMessage").textContent = "Voiceover ready hai! Sunein ya audio download karein.";
+      $("scriptMessage").className = "message";
+      $("audioPanel").scrollIntoView({behavior:"smooth", block:"center"});
+    } catch (error) {
+      $("scriptMessage").textContent = error.message;
+      $("scriptMessage").className = "message error";
+      throw error;
+    } finally {
+      button.disabled = false;
+      button.textContent = "🎙️ Script + Voice";
+    }
+  }
+
+  async function generateScriptAndVoice() {
+    if ($("language").value !== "Hindi") {
+      $("scriptMessage").textContent = "Voice generation ke liye Script Language mein Hindi select karein. Voice abhi Devanagari Hindi ke liye hai.";
+      $("scriptMessage").className = "message error";
+      return;
+    }
+    await requestScript($("customTopic").value.trim(), "Hindi", $("generateVoiceBtn"), true);
+  }
+
+  let newsLoaded = false;
+  async function loadHindiNews() {
+    newsLoaded = true;
+    const button = $("newsRefreshBtn");
+    const message = $("newsMessage");
+    const box = $("newsResults");
+    button.disabled = true;
+    button.textContent = "Loading…";
+    message.textContent = "Hindi news feeds check ho rahi hain...";
+    message.className = "message";
+    box.replaceChildren();
+    try {
+      const limit = $("newsLimit").value;
+      const data = await readJson(await fetch(apiUrl(`/api/news?limit=${encodeURIComponent(limit)}`)));
+      const articles = Array.isArray(data.articles) ? data.articles : [];
+      message.textContent = `${articles.length} headlines available`;
+      if (!articles.length) {
+        message.textContent = "Abhi news available nahi hai.";
+        return;
+      }
+      articles.forEach(article => {
+        const card = document.createElement("article");
+        card.className = "trend-card";
+        const source = document.createElement("span");
+        source.className = "tag";
+        source.textContent = article.source || "Hindi News";
+        const title = document.createElement("h3");
+        title.textContent = article.title || "News headline";
+        const summary = document.createElement("p");
+        summary.textContent = article.summary || "Original news padhne ke liye link kholen.";
+        const actions = document.createElement("div");
+        actions.className = "card-actions";
+        const use = document.createElement("button");
+        use.className = "mini-btn";
+        use.textContent = "Create Full Video Pack ✦";
+        use.addEventListener("click", () => {
+          const topic = `Hindi News: ${article.title || ""}
+Summary: ${article.summary || "No summary available."}
+Publisher: ${article.source || "Unknown"}
+Original Report: ${article.url || "Not available"}
+
+Create a complete Hindi news video content pack.
+Include:
+1. Catchy video title
+2. Powerful opening hook
+3. Complete Hindi video script
+4. Scene-by-scene visual suggestions
+5. Thumbnail text
+6. YouTube description
+7. Relevant hashtags
+8. Strong call to action
+
+Keep the reporting factual. Do not invent facts or unverified details.`;
+          requestScript(topic, "Hindi", use);
+        });
+        actions.append(use);
+        if (article.url && /^https?:\/\//i.test(article.url)) {
+          const link = document.createElement("a");
+          link.href = article.url;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.className = "text-link";
+          link.textContent = "Read Original ↗";
+          actions.append(link);
+        }
+        card.append(source, title, summary, actions);
+        box.append(card);
+      });
+    } catch (error) {
+      message.textContent = error.message;
+      message.className = "message error";
+    } finally {
+      button.disabled = false;
+      button.textContent = "Refresh News ↻";
+    }
+  }
+
+  async function searchViralVideos() {
+    const query = $("researchQuery").value.trim();
+    const platform = $("researchPlatform").value;
+    const btn = $("researchBtn");
+    const resultsBox = $("researchResults");
+    const message = $("researchMessage");
+    if (query.length < 2) {
+      message.textContent = "Please enter a topic to search.";
+      message.className = "message error";
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = "Searching...";
+    message.textContent = "Searching public video sources...";
+    message.className = "message";
+    resultsBox.replaceChildren();
+    try {
+      const params = new URLSearchParams({q:query, platform, region:$("region").value});
+      const data = await readJson(await fetch(apiUrl(`/api/video-research?${params}`)));
+      const results = data.results || [];
+      if (!results.length) {
+        message.textContent = "No videos found. Try another keyword.";
+        return;
+      }
+      message.textContent = `${results.length} results found.`;
+      results.forEach(video => {
+        const card = document.createElement("article");
+        card.className = "trend-card";
+        if (video.thumbnail) {
+          const img = document.createElement("img");
+          img.src = video.thumbnail;
+          img.alt = "Video thumbnail";
+          img.loading = "lazy";
+          img.style.cssText = "width:100%;border-radius:10px;margin-bottom:12px;aspect-ratio:16/9;object-fit:cover";
+          card.append(img);
+        }
+        const title = document.createElement("h3");
+        title.textContent = video.title || "Untitled video";
+        const details = document.createElement("p");
+        details.textContent = video.channel ? `Channel: ${video.channel}` : (video.note || "Public indexed result");
+        if (video.views !== undefined) {
+          details.textContent += ` · Views: ${Number(video.views).toLocaleString("en-IN")} · Likes: ${Number(video.likes).toLocaleString("en-IN")} · Views/hour: ${Number(video.views_per_hour).toLocaleString("en-IN")}`;
+        }
+        const score = document.createElement("div");
+        score.className = "score";
+        score.style.margin = "12px 0";
+        score.textContent = video.viral_score !== undefined ? `TrendRadar Viral Score: ${video.viral_score}/100` : "Instagram public discovery";
+        const actions = document.createElement("div");
+        actions.className = "card-actions";
+        const useButton = document.createElement("button");
+        useButton.className = "mini-btn";
+        useButton.textContent = "Use Topic in AI Script Studio";
+        useButton.addEventListener("click", () => {
+          $("customTopic").value = video.title || query;
+          $("studio").scrollIntoView({behavior:"smooth"});
+          $("customTopic").focus();
+        });
+        actions.append(useButton);
+        if (video.url && /^https?:\/\//i.test(video.url)) {
+          const link = document.createElement("a");
+          link.href = video.url;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.className = "text-link";
+          link.textContent = "Watch video ↗";
+          actions.append(link);
+        }
+        card.append(title, details, score, actions);
+        resultsBox.append(card);
+      });
+    } catch (error) {
+      message.textContent = error.message;
+      message.className = "message error";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Find Viral Videos 🔎";
+    }
+  }
+
+  $("newsRefreshBtn").addEventListener("click", loadHindiNews);
+  $("newsLimit").addEventListener("change", loadHindiNews);
+  $("researchBtn").addEventListener("click", searchViralVideos);
+  $("researchQuery").addEventListener("keydown", event => { if (event.key === "Enter") searchViralVideos(); });
+  $("refreshBtn").addEventListener("click", loadTrends);
+  $("opportunityRefreshBtn").addEventListener("click", loadOpportunities);
+  $("predictionRefreshBtn").addEventListener("click", loadPredictions);
+  $("opportunityLimit").addEventListener("change", () => renderOpportunities(currentOpportunities));
+  $("opportunityCategory").addEventListener("change", loadOpportunities);
+  $("region").addEventListener("change", () => {
+    $("opportunityRegion").textContent = $("region").selectedOptions[0]?.textContent || $("region").value;
+    // Never leave results from the previous region visible under the newly selected region.
+    currentOpportunities = [];
+    currentPredictions = [];
+    $("opportunityResults").replaceChildren();
+    $("predictionResults").replaceChildren();
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "Region changed. Select Find opportunities to load results for this region.";
+    $("opportunityResults").append(empty);
+    $("opportunityMessage").textContent = "Results cleared. Find opportunities to analyse the selected region.";
+    $("opportunityMessage").className = "message";
+  });
+  $("trendLimit").addEventListener("change", () => renderTrends(currentTrends));
+  $("region").addEventListener("change", loadTrends);
+  $("keyword").addEventListener("keydown", event => { if (event.key === "Enter") loadTrends(); });
+  $("generateBtn").addEventListener("click", generateScript);
+  $("generateVoiceBtn").addEventListener("click", generateScriptAndVoice);
+  $("voiceSpeed").addEventListener("input", () => { $("speedValue").textContent = $("voiceSpeed").value + "%"; });
+  $("voicePitch").addEventListener("input", () => { $("pitchValue").textContent = Number($("voicePitch").value) > 0 ? "+" + $("voicePitch").value + " semitones" : $("voicePitch").value + " semitones"; });
+  $("voiceVolume").addEventListener("input", () => { $("volumeValue").textContent = $("voiceVolume").value + "%"; });
+  $("resetVoiceBtn").addEventListener("click", () => {
+    $("voiceSpeed").value = 100; $("voicePitch").value = 0; $("voiceVolume").value = 100;
+    $("speedValue").textContent = "100%"; $("pitchValue").textContent = "0 semitones"; $("volumeValue").textContent = "100%";
+  });
+  $("copyBtn").addEventListener("click", async () => {
+    const value = $("scriptOutput").value;
+    if (!value) { $("scriptMessage").textContent = "There is no script to copy yet."; return; }
+    try {
+      await navigator.clipboard.writeText(value);
+      $("scriptMessage").textContent = "Script copied to clipboard.";
+    } catch {
+      $("scriptOutput").select();
+      document.execCommand("copy");
+      $("scriptMessage").textContent = "Script copied.";
+    }
+    $("scriptMessage").className = "message";
+  });
+
+  // Sidebar is the primary navigation; keep the dashboard uncluttered.
+  const sidebar = $("sidebar");
+  const sidebarToggle = $("sidebarToggle");
+  const workspacePages = ["trendingNowPage", "creatorCategories", "opportunityFinder", "trendPredictions"];
+  const showWorkspacePage = targetId => {
+    workspacePages.forEach(id => {
+      const page = $(id);
+      if (page) page.classList.toggle("active", id === targetId);
+    });
+    sidebar.querySelectorAll(".side-link").forEach(item => item.classList.toggle("active", item.dataset.target === targetId));
+    if (targetId !== "pageTop") $(targetId).scrollIntoView({behavior:"smooth", block:"start"});
+    else window.scrollTo({top:0, behavior:"smooth"});
+  };
+  const closeSidebar = () => {
+    document.body.classList.remove("sidebar-open");
+    sidebarToggle.setAttribute("aria-expanded", "false");
+    sidebarToggle.setAttribute("aria-label", "Open navigation");
+  };
+  sidebarToggle.addEventListener("click", () => {
+    const isOpen = document.body.classList.toggle("sidebar-open");
+    sidebarToggle.setAttribute("aria-expanded", String(isOpen));
+    sidebarToggle.setAttribute("aria-label", isOpen ? "Close navigation" : "Open navigation");
+  });
+  $("sidebarBackdrop").addEventListener("click", closeSidebar);
+  sidebar.querySelectorAll("[data-target]").forEach(link => {
+    link.addEventListener("click", () => {
+      const targetId = link.dataset.target;
+      const target = $(targetId);
+      if (workspacePages.includes(targetId)) {
+        showWorkspacePage(targetId);
+        if (targetId === "trendingNowPage" && !currentTrends.length) loadTrends();
+      } else {
+        workspacePages.forEach(id => $(id)?.classList.remove("active"));
+        if (targetId === "pageTop") window.scrollTo({top:0, behavior:"smooth"});
+        if (target && target.id === "breakingNews") {
+          target.hidden = false;
+          if (!newsLoaded) loadHindiNews();
+        }
+        if (target && targetId !== "pageTop") target.scrollIntoView({behavior:"smooth", block:"start"});
+        sidebar.querySelectorAll(".side-link").forEach(item => item.classList.toggle("active", item === link));
+      }
+      closeSidebar();
+    });
+  });
+
+  loadTrends();
+</script>
+</body>
+</html>
