@@ -1758,34 +1758,36 @@ aiButton.addEventListener("click", async () => {
   let currentVideoUrl = null;
 
   function getNarrationText(fullScript) {
-    // Strict allow-list: only Catchy Title, Complete Video Script and CTA.
-    // Never fall back to the complete AI response; that caused excluded sections
-    // to be narrated when the model formatted a heading differently.
-    const lines = String(fullScript || "").replace(/\r/g, "").split("\n");
+    // Read only the three approved sections. Normalize common Markdown/numbering
+    // variations before matching so formatting differences do not break voice.
+    const lines = String(fullScript || "").replace(/\\r/g, "").split("\\n");
     const sections = { title: [], script: [], cta: [] };
     const seen = new Set();
     let current = "";
 
-    const cleanHeading = value => value
-      .replace(/^\s*#{1,6}\s*/, "")
-      .replace(/^\s*\d+\s*[.)\-:]\s*/, "")
-      .replace(/^\s*[-*•]+\s*/, "")
-      .replace(/\*\*/g, "")
+    const normalizeHeading = value => value
+      .replace(/^\\s*#{1,6}\\s*/, "")
+      .replace(/\\*\\*/g, "")
       .replace(/__/g, "")
+      .replace(/^\\s*[-*•]+\\s*/, "")
+      .replace(/^\\s*\\d+\\s*[.)\\-:]\\s*/, "")
+      .replace(/^\\s*[-*•]+\\s*/, "")
+      .trim()
+      .replace(/[：:]\\s*$/, "")
       .trim();
 
     const headingRules = [
-      { name: "title", re: /^(?:CATCHY[\s_-]+TITLE|TITLE)(?:\s*[:：–—-].*|\s*\([^)]*\))?$/i },
-      { name: "script", re: /^(?:COMPLETE[\s_-]+VIDEO[\s_-]+SCRIPT|VIDEO[\s_-]+SCRIPT|SCRIPT[\s_-]+NARRATION)(?:\s*[:：–—-].*|\s*\([^)]*\))?$/i },
-      { name: "cta", re: /^(?:CALL[\s_-]+TO[\s_-]+ACTION|CTA)(?:\s*[:：–—-].*|\s*\([^)]*\))?$/i }
+      { name: "title", re: /^(?:CATCHY[\\s_-]+TITLE|TITLE)(?:\\s*(?:[:：–—-]|\\(|$).*)?$/i },
+      { name: "script", re: /^(?:COMPLETE[\\s_-]+VIDEO[\\s_-]+SCRIPT|VIDEO[\\s_-]+SCRIPT|SCRIPT[\\s_-]+NARRATION)(?:\\s*(?:[:：–—-]|\\(|$).*)?$/i },
+      { name: "cta", re: /^(?:CALL[\\s_-]+TO[\\s_-]+ACTION|CTA)(?:\\s*(?:[:：–—-]|\\(|$).*)?$/i }
     ];
-    const excludedHeading = /^(?:OPENING[\s_-]+HOOK|HOOK|INTRO(?:DUCTION)?|THUMBNAIL(?:[\s_-]+TEXT)?|VIDEO[\s_-]+DESCRIPTION|DESCRIPTION|HASHTAGS?|TAGS?|KEYWORDS?|VISUAL(?:S|[\s_-]+SUGGESTIONS?)?|SCENE[\s_-]+BY[\s_-]+SCENE(?:[\s_-]+VISUALS?)?|VISUAL[\s_-]+DIRECTION|IMAGE[\s_-]+PROMPTS?)(?:\b|\s*[:：–—-])/i;
+    const excludedHeading = /^(?:OPENING[\\s_-]+HOOK|HOOK|INTRO(?:DUCTION)?|THUMBNAIL(?:[\\s_-]+TEXT)?|VIDEO[\\s_-]+DESCRIPTION|DESCRIPTION|HASHTAGS?|TAGS?|KEYWORDS?|VISUAL(?:S|[\\s_-]+SUGGESTIONS?)?|SCENE[\\s_-]+BY[\\s_-]+SCENE(?:[\\s_-]+VISUALS?)?|VISUAL[\\s_-]+DIRECTION|IMAGE[\\s_-]+PROMPTS?|VIDEO[\\s_-]+PACK|CONTENT[\\s_-]+PACK|SCRIPT[\\s_-]+OVERVIEW|NOTES?|DISCLAIMER|SOURCES?|ENDING[\\s_-]+VISUALS?)(?:\\b|\\s*[:：–—-])/i;
 
     for (const raw of lines) {
       const line = raw.trim();
       if (!line) continue;
 
-      const normalized = cleanHeading(line).replace(/[：:]\s*$/, "").trim();
+      const normalized = normalizeHeading(line);
       const allowed = headingRules.find(rule => rule.re.test(normalized));
       if (allowed) {
         current = seen.has(allowed.name) ? "" : allowed.name;
@@ -1796,35 +1798,36 @@ aiButton.addEventListener("click", async () => {
         current = "";
         continue;
       }
-      if (/^(?:\d+\s*[.)]\s*)?(?:VIDEO\s+PACK|CONTENT\s+PACK|SCRIPT\s+OVERVIEW|NOTES?|DISCLAIMER|SOURCE(?:S)?|ENDING\s+VISUALS?)\s*[:：]?$/i.test(normalized)) {
+
+      // Any other standalone numbered/Markdown heading ends the current section;
+      // never let thumbnail/description/visual material leak into the narration.
+      const looksLikeHeading = /^(?:#{1,6}\\s+|\\d+\\s*[.)]\\s+|[A-Z][A-Z0-9 _-]{2,}:?$)/.test(line);
+      if (looksLikeHeading) {
         current = "";
         continue;
       }
       if (!current) continue;
 
-      if (/^\[.*\]$/.test(line) ||
-          /^\(.*(?:music|sound effect|camera|visual|cut to|show|zoom|fade|transition).*\)$/i.test(line) ||
-          /^(?:SCENE\s*\d+|VISUALS?|ON[ -]SCREEN TEXT|CAMERA|B-ROLL)\s*[:：-]/i.test(line)) continue;
+      if (/^\\[.*\\]$/.test(line) ||
+          /^\\(.*(?:music|sound effect|camera|visual|cut to|show|zoom|fade|transition).*)$/i.test(line) ||
+          /^(?:SCENE\\s*\\d+|VISUALS?|ON[ -]SCREEN TEXT|CAMERA|B-ROLL)\\s*[:：-]/i.test(line)) continue;
 
       const cleaned = line
-        .replace(/^\s*(?:[-*•]+\s*)?(?:\d{1,2}:\d{2}(?::\d{2})?\s*[-–—:]?\s*)/, "")
-        .replace(/^\s*(?:\*\*|__)?(?:NARRATOR|VOICEOVER|VOICE OVER|VO)\s*[:：-]\s*/i, "")
-        .replace(/\*\*/g, "")
+        .replace(/^\\s*(?:[-*•]+\\s*)?(?:\\d{1,2}:\\d{2}(?::\\d{2})?\\s*[-–—:]?\\s*)/, "")
+        .replace(/^\\s*(?:\\*\\*|__)?(?:NARRATOR|VOICEOVER|VOICE OVER|VO)\\s*[:：-]\\s*/i, "")
+        .replace(/\\*\\*/g, "")
         .replace(/__/g, "")
-        .replace(/^[-*•]+\s*/, "")
+        .replace(/^[-*•]+\\s*/, "")
         .trim();
-      // Keep mixed Hindi-English and English phrases inside allowed sections.
       if (cleaned) sections[current].push(cleaned);
     }
 
     return [...sections.title, ...sections.script, ...sections.cta]
-      .join("\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 12000);
+      .join("\\n").replace(/\\n{3,}/g, "\\n\\n").trim().slice(0, 12000);
   }
 
   function getSubtitleNarrationText(fullScript) {
-    // Subtitles must use exactly the same allowed sections and de-duplication
-    // rules as voiceover: Catchy Title, Complete Video Script and CTA once each.
-    // Opening Hook, Thumbnail Text and Video Description are excluded.
+    // Keep subtitles identical to the approved voice narration.
     return getNarrationText(fullScript);
   }
 
