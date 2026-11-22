@@ -1758,70 +1758,47 @@ aiButton.addEventListener("click", async () => {
   let currentVideoUrl = null;
 
   function getNarrationText(fullScript) {
-    // Read only the three approved sections. Normalize common Markdown/numbering
-    // variations before matching so formatting differences do not break voice.
+    // Voiceover speaks only these sections, once each, in this order:
+    // Catchy Title -> Complete Video Script -> Call to Action.
+    // Opening Hook, Thumbnail Text and Video Description are never narrated separately.
     const lines = String(fullScript || "").replace(/\r/g, "").split("\n");
+    const heading = /^\s*(?:#{1,6}\s*)?(?:\d+\s*[.)]\s*)?(?:[-*•]+\s*)?(?:\*\*|__)?\s*(CATCHY\s+TITLE|TITLE|OPENING\s+HOOK|HOOK|INTRO|COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCRIPT\s+NARRATION|SCENE[- ]BY[- ]SCENE\s+VISUAL(?:\s+SUGGESTIONS)?|VISUAL\s+SUGGESTIONS|VISUAL\s+DIRECTION|THUMBNAIL\s+TEXT|VIDEO\s+DESCRIPTION|HASHTAGS|CALL\s+TO\s+ACTION|TAGS)\b.*$/i;
+    const wanted = [
+      { name: "title", re: /^\s*(?:#{1,6}\s*)?(?:\d+\s*[.)]\s*)?(?:[-*•]+\s*)?(?:\*\*|__)?\s*(?:CATCHY\s+TITLE|TITLE)\b/i },
+      { name: "script", re: /^\s*(?:#{1,6}\s*)?(?:\d+\s*[.)]\s*)?(?:[-*•]+\s*)?(?:\*\*|__)?\s*(?:COMPLETE\s+VIDEO\s+SCRIPT|VIDEO\s+SCRIPT|SCRIPT\s+NARRATION)\b/i },
+      { name: "cta", re: /^\s*(?:#{1,6}\s*)?(?:\d+\s*[.)]\s*)?(?:[-*•]+\s*)?(?:\*\*|__)?\s*CALL\s+TO\s+ACTION\b/i }
+    ];
     const sections = { title: [], script: [], cta: [] };
     const seen = new Set();
     let current = "";
-
-    const normalizeHeading = value => value
-      .replace(/^\s*#{1,6}\s*/, "")
-      .replace(/\*\*/g, "")
-      .replace(/__/g, "")
-      .replace(/^\s*[-*•]+\s*/, "")
-      .replace(/^\s*\d+\s*[.)\-:]\s*/, "")
-      .replace(/^\s*[-*•]+\s*/, "")
-      .trim()
-      .replace(/[：:]\s*$/, "")
-      .trim();
-
-    const headingRules = [
-      { name: "title", re: /^(?:CATCHY[\s_-]+TITLE|TITLE)(?:\s*(?:[:：–—-]|\(|$).*)?$/i },
-      { name: "script", re: /^(?:COMPLETE[\s_-]+VIDEO[\s_-]+SCRIPT|VIDEO[\s_-]+SCRIPT|SCRIPT[\s_-]+NARRATION)(?:\s*(?:[:：–—-]|\(|$).*)?$/i },
-      { name: "cta", re: /^(?:CALL[\s_-]+TO[\s_-]+ACTION|CTA)(?:\s*(?:[:：–—-]|\(|$).*)?$/i }
-    ];
-    const excludedHeading = /^(?:OPENING[\s_-]+HOOK|HOOK|INTRO(?:DUCTION)?|THUMBNAIL(?:[\s_-]+TEXT)?|VIDEO[\s_-]+DESCRIPTION|DESCRIPTION|HASHTAGS?|TAGS?|KEYWORDS?|VISUAL(?:S|[\s_-]+SUGGESTIONS?)?|SCENE[\s_-]+BY[\s_-]+SCENE(?:[\s_-]+VISUALS?)?|VISUAL[\s_-]+DIRECTION|IMAGE[\s_-]+PROMPTS?|VIDEO[\s_-]+PACK|CONTENT[\s_-]+PACK|SCRIPT[\s_-]+OVERVIEW|NOTES?|DISCLAIMER|SOURCES?|ENDING[\s_-]+VISUALS?)(?:\b|\s*[:：–—-])/i;
-
+    let foundScript = false;
     for (const raw of lines) {
       const line = raw.trim();
       if (!line) continue;
-
-      const normalized = normalizeHeading(line);
-      const allowed = headingRules.find(rule => rule.re.test(normalized));
-      if (allowed) {
-        current = seen.has(allowed.name) ? "" : allowed.name;
+      if (heading.test(line)) {
+        const key = wanted.find(item => item.re.test(line));
+        current = key && !seen.has(key.name) ? key.name : "";
         if (current) seen.add(current);
-        continue;
-      }
-      if (excludedHeading.test(normalized)) {
-        current = "";
-        continue;
-      }
-
-      // Any other standalone numbered/Markdown heading ends the current section;
-      // never let thumbnail/description/visual material leak into the narration.
-      const looksLikeHeading = /^(?:#{1,6}\s+|\d+\s*[.)]\s+|[A-Z][A-Z0-9 _-]{2,}:?$)/.test(line);
-      if (looksLikeHeading) {
-        current = "";
+        if (current === "script") foundScript = true;
         continue;
       }
       if (!current) continue;
-
-      if (/^\[.*\]$/.test(line) ||
-          /^\(.*(?:music|sound effect|camera|visual|cut to|show|zoom|fade|transition).*\)$/i.test(line) ||
-          /^(?:SCENE\s*\d+|VISUALS?|ON[ -]SCREEN TEXT|CAMERA|B-ROLL)\s*[:：-]/i.test(line)) continue;
-
+      if (/^\[.*\]$/.test(line) || /^\(.*(?:music|sound|camera|visual|cut to|show|zoom|fade).*\)$/i.test(line)) continue;
       const cleaned = line
         .replace(/^\s*(?:[-*•]+\s*)?(?:\d{1,2}:\d{2}(?::\d{2})?\s*[-–—:]?\s*)/, "")
-        .replace(/^\s*(?:\*\*|__)?(?:NARRATOR|VOICEOVER|VOICE OVER|VO)\s*[:：-]\s*/i, "")
+        .replace(/^\s*(?:\*\*|__)?(?:NARRATOR|VOICEOVER|VO)\s*[:：-]\s*/i, "")
         .replace(/\*\*/g, "")
-        .replace(/__/g, "")
         .replace(/^[-*•]+\s*/, "")
         .trim();
-      if (cleaned) sections[current].push(cleaned);
+      if (cleaned && /[\u0900-\u097F]/.test(cleaned)) sections[current].push(cleaned);
     }
-
+    // If section headings are absent, keep the existing safe fallback behavior.
+    if (!foundScript) {
+      const fallback = lines.map(line => line.trim()).filter(line =>
+        line && !heading.test(line) && !/^\[.*\]$/.test(line) && /[\u0900-\u097F]/.test(line)
+      );
+      sections.script = fallback;
+    }
     return [...sections.title, ...sections.script, ...sections.cta]
       .join("\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 12000);
   }
