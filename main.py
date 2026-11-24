@@ -233,11 +233,13 @@ async def fetch_gdelt(client: httpx.AsyncClient, region: str) -> list[dict]:
         domain = clean_text(article.get("domain") or urlparse(url).netloc, 100)
         rows.append({
             "title": title,
-            "summary": clean_text(article.get("socialimage") or f"Recent news coverage from {country}.", 450),
+            "summary": f"Recent news coverage from {domain} in {country}; this source does not provide a search-volume measurement.",
             "source": f"GDELT · {domain}", "source_url": url,
             "published_at": (published or datetime.now(timezone.utc)).isoformat(),
-            "category": clean_text(article.get("tone"), 40) or "News",
-            "mentions": 1, "popularity": 2,
+            "category": "News",
+            "mentions": 1, "popularity": 0,
+            "signal_type": "news_coverage",
+            "why_trending": f"Recent coverage was found from {domain}. This confirms news coverage, not a measured rise in search interest.",
         })
     return rows
 
@@ -289,6 +291,10 @@ async def fetch_creator_category_news(client: httpx.AsyncClient, region: str, ca
         description = clean_text(item.findtext("description"), 450)
         if not title or not safe_http_url(link):
             continue
+        # Search feeds can return loosely related stories; require the title or
+        # description itself to support the selected creator category.
+        if infer_creator_category(title, description) != category:
+            continue
         rows.append({
             "title": title,
             "summary": description or f"Recent {category} coverage found by a category-specific news search.",
@@ -298,11 +304,12 @@ async def fetch_creator_category_news(client: httpx.AsyncClient, region: str, ca
             "category": category,
             "creator_category": category,
             "mentions": 1,
-            "popularity": 2,
-            "trend_score": score_item(published, 1, 1, 2),
-            "trend_stage": "new",
+            "popularity": 0,
+            "trend_score": score_item(published, 1, 1, 0),
+            "trend_stage": "collecting",
             "growth_delta": None,
-            "why_trending": f"Found in the recent {category} category-specific news search.",
+            "signal_type": "news_coverage",
+            "why_trending": f"Recent {category} coverage matched the category search. This is a news signal, not measured search-volume growth.",
         })
     return rows
 
@@ -320,15 +327,22 @@ async def fetch_youtube(client: httpx.AsyncClient, region: str) -> list[dict]:
         stats = video.get("statistics", {})
         title = clean_text(snippet.get("title"), 180)
         video_id = video.get("id")
-        if not title or not video_id:
+        published = parse_date(snippet.get("publishedAt"))
+        if not title or not video_id or not published:
+            continue
+        age_hours = max(0, (datetime.now(timezone.utc) - published).total_seconds() / 3600)
+        if age_hours > 72:
             continue
         views = int(stats.get("viewCount", 0) or 0)
         rows.append({
-            "title": title, "summary": clean_text(snippet.get("description"), 450) or "A currently popular YouTube video in this region.",
-            "source": "YouTube mostPopular", "source_url": f"https://www.youtube.com/watch?v={video_id}",
-            "published_at": snippet.get("publishedAt") or datetime.now(timezone.utc).isoformat(),
-            "category": clean_text(snippet.get("categoryId"), 40) or "Video",
+            "title": title,
+            "summary": clean_text(snippet.get("description"), 450) or "A recently published, popular YouTube video.",
+            "source": "YouTube popular videos", "source_url": f"https://www.youtube.com/watch?v={video_id}",
+            "published_at": published.isoformat(),
+            "category": "Video",
             "mentions": 1, "popularity": min(15, int(views / 10_000_000)),
+            "signal_type": "popular_video",
+            "why_trending": "This is a recently popular YouTube video signal, not proof that the topic is a rising search trend.",
         })
     return rows
 
@@ -338,22 +352,24 @@ CREATOR_CATEGORIES = ["Entertainment", "Sports", "Politics", "Technology", "Busi
 
 
 def infer_creator_category(title: str, summary: str = "") -> str:
-    """Classify topics using transparent keywords from the available feed text."""
-    text = f"{title} {summary}".casefold()
+    """Classify English and Hindi topics with conservative word-boundary matching."""
+    text = f" {normalize_trend_key(title)} {normalize_trend_key(summary)} "
     rules = {
-        "Sports": ["cricket", "ipl", "odi", "t20", "football", "soccer", "tennis", "hockey", "wrestling", "badminton", "fifa", "icc", "bcci", "world cup", "olympic", "match"],
-        "Politics": ["election", "minister", "parliament", "lok sabha", "rajya sabha", "bjp", "congress", "modi", "government", "chief minister", "political", "vote", "poll"],
-        "Technology": ["artificial intelligence", "chatgpt", "gemini", "openai", "smartphone", "iphone", "android", "technology", "tech", "software", "cyber", "robot", "google", "microsoft", "apple"],
-        "Gaming": ["gaming", "gameplay", "gta", "minecraft", "pubg", "bgmi", "free fire", "fortnite", "playstation", "xbox", "esports"],
-        "Business": ["stock", "sensex", "nifty", "share market", "business", "startup", "company", "ipo", "economy", "rupee", "bank", "finance", "investor"],
-        "Devotional": ["temple", "mandir", "aarti", "bhajan", "hanuman", "krishna", "shiv", "mahadev", "durga", "puja", "diwali", "navratri"],
-        "Education": ["exam", "result", "admit card", "neet", "jee", "upsc", "ssc", "school", "college", "university", "education", "student"],
-        "Lifestyle": ["health", "fitness", "food", "recipe", "fashion", "beauty", "travel", "relationship", "wellness"],
-        "Entertainment": ["movie", "film", "cinema", "actor", "actress", "celebrity", "bollywood", "hollywood", "tollywood", "pawan kalyan", "prabhas", "salman", "shah rukh", "box office", "trailer", "teaser", "song", "web series", "tv show"],
+        "Sports": ["cricket", "ipl", "odi", "t20", "football", "soccer", "tennis", "hockey", "wrestling", "badminton", "fifa", "icc", "bcci", "world cup", "olympic", "क्रिकेट", "आईपीएल", "फुटबॉल", "हॉकी", "कबड्डी", "टेनिस", "बैडमिंटन", "मैच", "विश्व कप", "टीम इंडिया"],
+        "Politics": ["election", "minister", "parliament", "lok sabha", "rajya sabha", "bjp", "congress", "modi", "government", "chief minister", "political", "vote", "चुनाव", "मंत्री", "संसद", "लोकसभा", "राज्यसभा", "सरकार", "प्रधानमंत्री", "मुख्यमंत्री", "भाजपा", "कांग्रेस", "मतदान"],
+        "Technology": ["artificial intelligence", "chatgpt", "gemini", "openai", "smartphone", "iphone", "android", "technology", "software", "cyber", "robot", "google", "microsoft", "तकनीक", "कृत्रिम बुद्धिमत्ता", "एआई", "मोबाइल", "स्मार्टफोन", "चैटजीपीटी", "जेमिनी", "साइबर"],
+        "Gaming": ["gaming", "gameplay", "gta", "minecraft", "pubg", "bgmi", "free fire", "fortnite", "playstation", "xbox", "esports", "गेमिंग", "गेमप्ले", "पब्जी", "बीजीएमआई", "फ्री फायर", "माइनक्राफ्ट"],
+        "Business": ["stock market", "sensex", "nifty", "share market", "business", "startup", "ipo", "economy", "rupee", "finance", "investor", "शेयर बाजार", "शेयर मार्केट", "सेंसेक्स", "निफ्टी", "कारोबार", "व्यापार", "अर्थव्यवस्था", "रुपया", "आईपीओ"],
+        "Devotional": ["temple", "mandir", "aarti", "bhajan", "hanuman", "krishna", "shiv", "mahadev", "durga", "puja", "diwali", "navratri", "मंदिर", "भजन", "आरती", "हनुमान", "कृष्ण", "शिव", "महादेव", "दुर्गा", "पूजा", "नवरात्रि"],
+        "Education": ["exam", "result", "admit card", "neet", "jee", "upsc", "ssc", "school", "college", "university", "education", "student", "परीक्षा", "रिजल्ट", "परिणाम", "एडमिट कार्ड", "छात्र", "स्कूल", "कॉलेज"],
+        "Lifestyle": ["health", "fitness", "food", "recipe", "fashion", "beauty", "travel", "relationship", "wellness", "स्वास्थ्य", "फिटनेस", "खाना", "रेसिपी", "फैशन", "यात्रा", "रिश्ते"],
+        "Entertainment": ["movie", "film", "cinema", "actor", "actress", "celebrity", "bollywood", "hollywood", "tollywood", "pawan kalyan", "prabhas", "salman", "shah rukh", "box office", "trailer", "teaser", "song", "web series", "tv show", "फिल्म", "मूवी", "अभिनेता", "अभिनेत्री", "बॉलीवुड", "सिनेमा", "ट्रेलर", "टीज़र", "गाना", "वेब सीरीज"],
     }
     for category, keywords in rules.items():
-        if any(keyword in text for keyword in keywords):
-            return category
+        for keyword in keywords:
+            normalized_keyword = normalize_trend_key(keyword)
+            if normalized_keyword and f" {normalized_keyword} " in text:
+                return category
     return "General"
 
 def normalize_trend_key(value: str) -> str:
@@ -365,8 +381,24 @@ def merge_and_rank(rows: list[dict], region: str) -> list[dict]:
     groups: dict[str, list[dict]] = {}
     for row in rows:
         key = normalize_trend_key(row.get("title", ""))
-        if key:
-            groups.setdefault(key, []).append(row)
+        if not key:
+            continue
+        # Merge exact Unicode-normalized titles and only very close variants.
+        # The conservative token threshold avoids combining unrelated stories.
+        match_key = key if key in groups else None
+        if match_key is None:
+            words = set(key.split())
+            if len(words) >= 3:
+                for existing_key in groups:
+                    existing_words = set(existing_key.split())
+                    if len(existing_words) < 3:
+                        continue
+                    overlap = len(words & existing_words) / min(len(words), len(existing_words))
+                    size_ratio = max(len(words), len(existing_words)) / min(len(words), len(existing_words))
+                    if overlap >= 0.90 and size_ratio <= 1.25:
+                        match_key = existing_key
+                        break
+        groups.setdefault(match_key or key, []).append(row)
     output = []
     for key, group in groups.items():
         best = max(group, key=lambda x: parse_date(x.get("published_at")) or datetime.min.replace(tzinfo=timezone.utc))
@@ -452,6 +484,31 @@ def record_and_classify_trends(rows: list[dict], region: str) -> list[dict]:
     if len(history) > TREND_HISTORY_MAX_SNAPSHOTS:
         del history[:-TREND_HISTORY_MAX_SNAPSHOTS]
     return classified
+
+
+@app.get("/robots.txt")
+async def robots_txt():
+    body = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /api/\n"
+        "Disallow: /docs\n"
+        "Disallow: /openapi.json\n"
+        "Sitemap: https://trendradar-ai1.onrender.com/sitemap.xml\n"
+    )
+    return Response(content=body, media_type="text/plain; charset=utf-8")
+
+
+@app.get("/sitemap.xml")
+async def sitemap_xml():
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        '<url><loc>https://trendradar-ai1.onrender.com/</loc>'
+        '<changefreq>daily</changefreq><priority>1.0</priority></url>'
+        '</urlset>'
+    )
+    return Response(content=body, media_type="application/xml")
 
 
 @app.get("/")
