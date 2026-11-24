@@ -81,6 +81,7 @@ app.add_middleware(
 
 _cache: dict[str, tuple[float, Any]] = {}
 _cache_updated_at: dict[str, str] = {}
+_trend_source_status: dict[str, dict[str, str]] = {}
 _rate: dict[str, list[float]] = {}
 _rate_lock = asyncio.Lock()
 _pixabay_search_cache: dict[str, tuple[float, list[dict]]] = {}
@@ -500,10 +501,15 @@ async def trends(region: str = "IN", q: str | None = None):
             rows = record_and_classify_trends(rows, region)
         if not rows:
             raise HTTPException(status_code=503, detail={"message": "Trend feeds are temporarily unavailable or returned no results. Please retry shortly.", "sources": source_status})
+        _trend_source_status[region] = dict(source_status)
         put_cache(cache_key, rows)
     else:
-        source_status = {"Google Trends": "cached", "GDELT": "cached",
-                         "YouTube": "cached" if YOUTUBE_API_KEY else "not_configured"}
+        previous_status = _trend_source_status.get(region, {})
+        source_status = {
+            name: ("cached" if status == "ok" else status)
+            for name, status in previous_status.items()
+        } or {"Google Trends": "cached", "GDELT": "cached",
+              "YouTube": "cached" if YOUTUBE_API_KEY else "not_configured"}
     filtered = rows
     if q:
         query = clean_text(q, 80).lower()
