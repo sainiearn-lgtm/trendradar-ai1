@@ -357,7 +357,7 @@ def infer_creator_category(title: str, summary: str = "") -> str:
 
 def normalize_trend_key(value: str) -> str:
     """Normalize Latin and Indic titles without discarding non-Latin letters."""
-    return re.sub(r"[^\\w]+", " ", str(value or "").casefold(), flags=re.UNICODE).strip()
+    return re.sub(r"[^\w]+", " ", str(value or "").casefold(), flags=re.UNICODE).strip()
 
 
 def merge_and_rank(rows: list[dict], region: str) -> list[dict]:
