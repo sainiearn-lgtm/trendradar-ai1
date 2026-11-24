@@ -534,7 +534,7 @@ async def trend_predictions(region: str = "IN", limit: int = 10):
     predictions = []
 
     for item in feed.get("trends", []):
-        key = re.sub(r"[^a-z0-9]+", " ", item.get("title", "").casefold()).strip()
+        key = normalize_trend_key(item.get("title", ""))
         observed = []
         for snapshot in history:
             record = snapshot.get("items", {}).get(key)
@@ -657,7 +657,7 @@ async def viral_opportunities(region: str = "IN", limit: int = 10, category: str
         # Keep existing live trend signals, but supplement them with relevant
         # recent category-search results. Explicit category metadata wins when
         # a title also exists in the broad feed.
-        combined = {re.sub(r"[^a-z0-9]+", " ", row.get("title", "").casefold()).strip(): dict(row)
+        combined = {normalize_trend_key(row.get("title", "")): dict(row)
                     for row in feed.get("trends", [])}
         for row in category_rows:
             key = re.sub(r"[^a-z0-9]+", " ", row.get("title", "").casefold()).strip()
