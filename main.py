@@ -196,6 +196,7 @@ async def fetch_google_trends(client: httpx.AsyncClient, region: str) -> list[di
                 "source": "Google Trends", "source_url": link,
                 "published_at": (pub or datetime.now(timezone.utc)).isoformat(),
                 "category": "Search trend", "mentions": 1, "popularity": 8,
+                "signal_type": "google_search_interest",
                 "related_news": related_news,
                 "why_trending": "Google Trends is showing increased search interest. Related coverage: " + " | ".join(reason_parts) if reason_parts else "",
             })
@@ -408,6 +409,7 @@ def merge_and_rank(rows: list[dict], region: str) -> list[dict]:
             "id": str(abs(hash(key))), "title": best["title"], "summary": best["summary"],
             "source": " + ".join(sorted(sources)), "source_url": best["source_url"],
             "region": region, "category": best.get("creator_category") or infer_creator_category(best["title"], best.get("summary", "")), "creator_category": best.get("creator_category") or infer_creator_category(best["title"], best.get("summary", "")), "source_category": best.get("category") or "General",
+            "signal_types": sorted({x.get("signal_type", "unknown") for x in group}),
             "trend_score": score_item(pub, len(group), len(sources), max(x.get("popularity", 0) for x in group)),
             "published_at": best.get("published_at"), "mentions": len(group),
             "related_news": list({
@@ -447,7 +449,11 @@ def record_and_classify_trends(rows: list[dict], region: str) -> list[dict]:
         score = int(row.get("trend_score", 0) or 0)
         delta = score - int(old.get("score", score)) if old else 0
         points = len(history) + 1
-        if not enough_history:
+        # Only Google Trends search-interest observations can establish
+        # rising/emerging/viral search momentum. News and popular-video feeds
+        # remain useful context, but are not interchangeable with search trends.
+        has_search_signal = "google_search_interest" in row.get("signal_types", [])
+        if not has_search_signal or not enough_history:
             stage = "collecting"
         elif not old:
             stage = "new"
