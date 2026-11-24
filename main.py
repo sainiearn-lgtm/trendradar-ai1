@@ -80,6 +80,7 @@ app.add_middleware(
 )
 
 _cache: dict[str, tuple[float, Any]] = {}
+_cache_updated_at: dict[str, str] = {}
 _rate: dict[str, list[float]] = {}
 _rate_lock = asyncio.Lock()
 _pixabay_search_cache: dict[str, tuple[float, list[dict]]] = {}
@@ -95,6 +96,7 @@ def cached(key: str):
 
 def put_cache(key: str, value: Any):
     _cache[key] = (time.monotonic(), value)
+    _cache_updated_at[key] = datetime.now(timezone.utc).isoformat()
 
 
 @app.middleware("http")
@@ -140,12 +142,13 @@ def parse_date(value: str | None) -> datetime | None:
 
 
 def score_item(published: datetime | None, mentions: int, source_count: int, popularity: int = 0) -> int:
+    """Evidence score (0-100); fresh single-source items are not automatically viral."""
     age_hours = max(0.0, (datetime.now(timezone.utc) - (published or datetime.now(timezone.utc))).total_seconds() / 3600)
     recency = max(0, 35 - int(age_hours * 1.15))
     repetition = min(30, max(0, (mentions - 1) * 8))
-    source_signal = min(20, source_count * 10)
+    source_signal = min(20, max(0, source_count) * 10)
     popularity_signal = min(15, max(0, popularity))
-    return max(0, min(100, 30 + recency + repetition + source_signal + popularity_signal))
+    return max(0, min(100, recency + repetition + source_signal + popularity_signal))
 
 
 async def fetch_google_trends(client: httpx.AsyncClient, region: str) -> list[dict]:
@@ -352,10 +355,15 @@ def infer_creator_category(title: str, summary: str = "") -> str:
             return category
     return "General"
 
+def normalize_trend_key(value: str) -> str:
+    """Normalize Latin and Indic titles without discarding non-Latin letters."""
+    return re.sub(r"[^\\w]+", " ", str(value or "").casefold(), flags=re.UNICODE).strip()
+
+
 def merge_and_rank(rows: list[dict], region: str) -> list[dict]:
     groups: dict[str, list[dict]] = {}
     for row in rows:
-        key = re.sub(r"[^a-z0-9]+", " ", row["title"].lower()).strip()
+        key = normalize_trend_key(row.get("title", ""))
         if key:
             groups.setdefault(key, []).append(row)
     output = []
@@ -401,7 +409,7 @@ def record_and_classify_trends(rows: list[dict], region: str) -> list[dict]:
     snapshot_items = {}
     enough_history = len(history) >= 1
     for row in rows:
-        key = re.sub(r"[^a-z0-9]+", " ", row.get("title", "").casefold()).strip()
+        key = normalize_trend_key(row.get("title", ""))
         old = previous_items.get(key)
         score = int(row.get("trend_score", 0) or 0)
         delta = score - int(old.get("score", score)) if old else 0
@@ -412,7 +420,7 @@ def record_and_classify_trends(rows: list[dict], region: str) -> list[dict]:
             stage = "new"
         elif delta <= -5:
             stage = "declining"
-        elif score >= 80:
+        elif score >= 75 and delta >= 5 and len(history) >= 2:
             stage = "viral"
         elif delta >= 5 and score < 70:
             stage = "emerging"
@@ -503,8 +511,8 @@ async def trends(region: str = "IN", q: str | None = None):
     return {
         "region": region, "region_name": REGIONS[region]["name"], "count": len(filtered),
         "trends": filtered, "sources": source_status,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-        "score_note": "Trend scores are TrendRadar estimates based on recency, repeated feed mentions, source coverage and available popularity signals. They are not official platform virality metrics.",
+        "updated_at": _cache_updated_at.get(cache_key, datetime.now(timezone.utc).isoformat()),
+        "score_note": "Evidence score (0-100) combines recency, repeated feed mentions, source coverage and available popularity signals. A high score is not an official platform virality metric or a view prediction.",
     }
 
 
@@ -2210,10 +2218,14 @@ async def generate_voice(payload: VoiceRequest, request: Request):
         )
 
     attempts: list[str] = []
-    if VOICE_PROVIDER in {"auto", "gemini"} and GEMINI_API_KEYS and len(payload.text) <= GEMINI_TTS_MAX_CHARS:
-        attempts.append("gemini")
-    if VOICE_PROVIDER in {"auto", "edge"}:
+    # Gemini TTS has no pitch parameter; route adjusted-pitch requests through Edge TTS.
+    if payload.pitch != 0:
         attempts.append("edge")
+    else:
+        if VOICE_PROVIDER in {"auto", "gemini"} and GEMINI_API_KEYS and len(payload.text) <= GEMINI_TTS_MAX_CHARS:
+            attempts.append("gemini")
+        if VOICE_PROVIDER in {"auto", "edge"}:
+            attempts.append("edge")
     if not attempts:
         attempts.append("edge")
 
