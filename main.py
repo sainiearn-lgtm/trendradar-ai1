@@ -660,7 +660,7 @@ async def viral_opportunities(region: str = "IN", limit: int = 10, category: str
         combined = {normalize_trend_key(row.get("title", "")): dict(row)
                     for row in feed.get("trends", [])}
         for row in category_rows:
-            key = re.sub(r"[^a-z0-9]+", " ", row.get("title", "").casefold()).strip()
+            key = normalize_trend_key(row.get("title", ""))
             if not key:
                 continue
             if key in combined:
