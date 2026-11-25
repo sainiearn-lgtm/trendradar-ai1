@@ -1674,6 +1674,89 @@ async def proxy_pixabay_image(url: str):
         raise HTTPException(status_code=502, detail="Could not download selected image.") from exc
 
 
+# Pixabay search ladder: strict first, then looser so a scene is not left without photos.
+PIXABAY_LEVELS = [
+    {"orientation": "vertical", "min_width": 600},   # level 0: tall photos
+    {"min_width": 640},                               # level 1: any shape (cropped to 9:16 in the video)
+    {},                                               # level 2: no size/shape filter
+]
+
+
+async def pixabay_search_images(client: httpx.AsyncClient, query: str, level: int = 0, lang: str | None = None):
+    """Search Pixabay; keep the API key server-side and keep attribution details."""
+    if not PIXABAY_API_KEY or not query:
+        return []
+    level = max(0, min(level, len(PIXABAY_LEVELS) - 1))
+    cache_key = f"{level}|{lang or ''}|{query.casefold()}"
+    cached_result = _pixabay_search_cache.get(cache_key)
+    if cached_result:
+        age = time.monotonic() - cached_result[0]
+        # Good results are reused for a day; empty results only for an hour.
+        if age < (86400 if cached_result[1] else 3600):
+            return cached_result[1]
+    params = {"key": PIXABAY_API_KEY, "q": query, "image_type": "photo",
+              "safesearch": "true", "per_page": 20, "order": "popular"}
+    params.update(PIXABAY_LEVELS[level])
+    if lang:
+        params["lang"] = lang
+    try:
+        resp = await client.get("https://pixabay.com/api/", params=params, timeout=18)
+        if resp.status_code == 429:
+            logger.warning("Pixabay rate limit reached for a scene search")
+            return []
+        resp.raise_for_status()
+        found = []
+        for hit in resp.json().get("hits", []):
+            image_url = hit.get("largeImageURL") or hit.get("webformatURL")
+            source_url = hit.get("pageURL") or "https://pixabay.com/"
+            if not safe_http_url(image_url) or not safe_http_url(source_url):
+                continue
+            creator = clean_text(hit.get("user") or "Pixabay contributor", 120)
+            tags = clean_text(hit.get("tags") or "", 240)
+            found.append({"title": tags or f"Photo by {creator}", "description": tags,
+                "image_url": "/api/pixabay-image?url=" + quote(image_url, safe=""), "source_url": source_url,
+                "license": "Pixabay Content License — verify source page",
+                "artist": creator, "credit": f"Image by {creator} / Pixabay",
+                "provider": "Pixabay", "width": hit.get("imageWidth") or hit.get("webformatWidth"),
+                "height": hit.get("imageHeight") or hit.get("webformatHeight")})
+        _pixabay_search_cache[cache_key] = (time.monotonic(), found)
+        return found
+    except Exception as exc:
+        logger.info("Pixabay image search failed for query %r: %s", query, exc)
+        return []
+
+
+def pixabay_image_big_enough(item: dict) -> bool:
+    width, height = item.get("width"), item.get("height")
+    try:
+        return not (width and height and min(int(width), int(height)) < 480)
+    except (TypeError, ValueError):
+        return True
+
+
+@app.get("/api/scene-images")
+async def search_scene_images(q: str = ""):
+    """Manual photo search for one scene (the user types their own keywords)."""
+    query = clean_text(q, 80)
+    if len(query) < 2:
+        raise HTTPException(status_code=422, detail="Kam se kam 2 akshar ka keyword likhein.")
+    if not PIXABAY_API_KEY:
+        raise HTTPException(status_code=503, detail="Photo search abhi available nahi hai (Pixabay key set nahi).")
+    lang = "hi" if re.search(r"[\u0900-\u097f]", query) else None
+    results: list[dict] = []
+    seen: set[str] = set()
+    async with httpx.AsyncClient(follow_redirects=True) as client:
+        for level in range(len(PIXABAY_LEVELS)):
+            for item in await pixabay_search_images(client, query, level, lang):
+                url = item.get("image_url")
+                if url and url not in seen and pixabay_image_big_enough(item):
+                    seen.add(url)
+                    results.append(item)
+            if len(results) >= 10:
+                break
+    return {"query": query, "images": results[:12], "found": len(results)}
+
+
 @app.post("/api/visuals")
 async def generate_visuals(payload: VisualRequest):
     """Turn a script into visual scenes and find openly licensed Wikimedia Commons images."""
@@ -1767,45 +1850,8 @@ Script:
                     await asyncio.sleep(0.7 * (attempt + 1))
         return []
 
-    async def find_pixabay_images(client: httpx.AsyncClient, query: str):
-        """Search Pixabay; keep the API key server-side and use attribution."""
-        if not PIXABAY_API_KEY or not query:
-            return []
-        cache_key = query.casefold()
-        cached_result = _pixabay_search_cache.get(cache_key)
-        if cached_result and time.monotonic() - cached_result[0] < 86400:
-            return cached_result[1]
-        try:
-            resp = await client.get(
-                "https://pixabay.com/api/",
-                params={"key": PIXABAY_API_KEY, "q": query, "image_type": "photo",
-                        "orientation": "vertical", "safesearch": "true", "per_page": 20,
-                        "min_width": 800, "order": "popular"},
-                timeout=18,
-            )
-            if resp.status_code == 429:
-                logger.warning("Pixabay rate limit reached for a scene search")
-                return []
-            resp.raise_for_status()
-            found = []
-            for hit in resp.json().get("hits", []):
-                image_url = hit.get("largeImageURL") or hit.get("webformatURL")
-                source_url = hit.get("pageURL") or "https://pixabay.com/"
-                if not safe_http_url(image_url) or not safe_http_url(source_url):
-                    continue
-                creator = clean_text(hit.get("user") or "Pixabay contributor", 120)
-                tags = clean_text(hit.get("tags") or "", 240)
-                found.append({"title": tags or f"Photo by {creator}", "description": tags,
-                    "image_url": "/api/pixabay-image?url=" + quote(image_url, safe=""), "source_url": source_url,
-                    "license": "Pixabay Content License — verify source page",
-                    "artist": creator, "credit": f"Image by {creator} / Pixabay",
-                    "provider": "Pixabay", "width": hit.get("imageWidth") or hit.get("webformatWidth"),
-                    "height": hit.get("imageHeight") or hit.get("webformatHeight")})
-            _pixabay_search_cache[cache_key] = (time.monotonic(), found)
-            return found
-        except Exception as exc:
-            logger.info("Pixabay image search failed for query %r: %s", query, exc)
-            return []
+    async def find_pixabay_images(client: httpx.AsyncClient, query: str, level: int = 0):
+        return await pixabay_search_images(client, query, level)
 
     async def find_openverse_images(client: httpx.AsyncClient, query: str):
         """Search openly licensed images; anonymous access is rate-limited."""
@@ -2034,30 +2080,36 @@ Script:
             # generic scenes, independent of the server's deployment region.
             # Never use stock search as proof of a named celebrity's identity.
             if PIXABAY_API_KEY and not named_subject and not named_movie_poster:
-                for query in queries[:3]:
-                    results = await find_pixabay_images(client, query)
+                # Ladder: India-flavoured query, plain query, then looser filters and
+                # fewer keywords. Pixabay already ranks by its own tags, so results are
+                # accepted unless they are tiny; ranking below puts the best matches first.
+                plain_queries = [q for q in queries if not q.casefold().endswith(" india")]
+                short_terms = concise_terms(clean_text(scene.get("search_query", ""), 160), 2) or concise_terms(visual_terms, 2)
+                attempts = [(queries[0], 0)] if queries else []
+                if len(queries) > 1:
+                    attempts.append((queries[1], 0))
+                if plain_queries:
+                    attempts.append((plain_queries[0], 1))
+                if short_terms:
+                    attempts.extend([(short_terms, 1), (short_terms, 2)])
+                tried = set()
+                for query, level in attempts:
+                    if (query.casefold(), level) in tried:
+                        continue
+                    tried.add((query.casefold(), level))
+                    results = await find_pixabay_images(client, query, level)
                     for item in results:
                         url = item.get("image_url")
-                        if not url or url in seen_urls:
-                            continue
-                        metadata = (item.get("title", "") + " " + item.get("description", "")).casefold()
-                        # Require a meaningful title/description match; a single
-                        # generic tag is not enough to pass a scene image.
-                        if scene_relevance_score(item, scene, query) <= 0:
-                            continue
-                        width, height = item.get("width"), item.get("height")
-                        if width and height and (int(width) < 500 or int(height) < 600):
+                        if not url or url in seen_urls or not pixabay_image_big_enough(item):
                             continue
                         seen_urls.add(url)
                         all_images.append(item)
-                        if len(all_images) >= 15:
-                            break
-                    logger.info("Pixabay scene query: scene=%s query=%r accepted=%s", scene.get("scene", "?"), query, len(all_images))
-                    if len(all_images) >= 15:
+                    logger.info("Pixabay scene query: scene=%s level=%s query=%r total=%s", scene.get("scene", "?"), level, query, len(all_images))
+                    if len(all_images) >= 8:
                         break
 
             # Openverse supplies another pool of openly licensed generic visuals.
-            if len(all_images) < 15 and not named_subject and not named_movie_poster:
+            if len(all_images) < 6 and not named_subject and not named_movie_poster:
                 for query in queries[:3]:
                     results = await find_openverse_images(client, query)
                     accepted_before = len(all_images)
@@ -2075,7 +2127,7 @@ Script:
                         break
 
             # Commons is used for named people and as a fallback for generic visuals.
-            if len(all_images) < 15:
+            if len(all_images) < (15 if (named_subject or named_movie_poster) else 6):
                 for broad in (True, False):
                     for query in queries[:5]:
                         logger.info("Wikimedia scene search: scene=%s broad=%s query=%r", scene.get("scene", "?"), broad, query)
@@ -2111,7 +2163,7 @@ Script:
                 scores = [scene_relevance_score(item, scene, q) for q in queries]
                 return max(scores or [0])
             all_images.sort(key=best_score, reverse=True)
-            return all_images[:5]
+            return all_images[:8]
 
     async with httpx.AsyncClient(follow_redirects=True) as client:
         semaphore = asyncio.Semaphore(2)
@@ -2133,7 +2185,7 @@ Script:
             "narration": clean_text(scene.get("narration"), 500),
             "visual": clean_text(scene.get("visual"), 300),
             "search_query": clean_text(scene.get("search_query"), 160),
-            "images": images[:5],
+            "images": images[:8],
             "image_status": "found" if images else "not_found",
         })
     return {

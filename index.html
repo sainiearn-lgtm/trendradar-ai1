@@ -854,6 +854,9 @@
     document.querySelectorAll(".own-image-upload").forEach(label => {
       label.hidden = mode !== "upload";
     });
+    document.querySelectorAll(".internet-search-row").forEach(element => {
+      element.hidden = mode !== "internet";
+    });
 
     if (mode === "upload" && !document.querySelector(".own-image-upload")) {
       $("visualMessage").textContent = "Scene-wise upload buttons dikhane ke liye pehle “Find matching images ✨” par click karein.";
@@ -978,12 +981,17 @@ aiButton.addEventListener("click", async () => {
   }
 });
         const options = Array.isArray(scene.images) ? scene.images : [];
+        let emptyNote = null;
         if (!options.length) {
-          const empty = document.createElement("p");
-          empty.textContent = "Is scene ke liye image nahi mili. Search phrase badal kar retry karein.";
-          images.append(empty);
+          emptyNote = document.createElement("p");
+          emptyNote.className = "internet-search-row";
+          emptyNote.textContent = "Is scene ke liye image nahi mili. Neeche search box mein apna keyword likh ke dhoondho.";
+          images.append(emptyNote);
         }
-        options.forEach((item, index) => {
+        const shownUrls = new Set();
+        const addOption = (item, index) => {
+          if (!item || !item.image_url || shownUrls.has(item.image_url)) return;
+          shownUrls.add(item.image_url);
           const choice = document.createElement("button");
           choice.type = "button";
           choice.className = "visual-choice internet-image-choice";
@@ -1031,7 +1039,57 @@ aiButton.addEventListener("click", async () => {
             updateVisualSelectionStatus();
           });
           images.append(choice);
+        };
+        options.forEach(addOption);
+
+        // Manual search: type your own keywords (English or Hindi) for this scene.
+        const searchRow = document.createElement("div");
+        searchRow.className = "internet-search-row";
+        const searchInner = document.createElement("div");
+        searchInner.style.cssText = "display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px";
+        const searchInput = document.createElement("input");
+        searchInput.type = "text";
+        searchInput.maxLength = 80;
+        searchInput.placeholder = "Khud keyword likho, jaise: temple lamp";
+        searchInput.style.cssText = "flex:1;min-width:180px";
+        const searchButton = document.createElement("button");
+        searchButton.type = "button";
+        searchButton.className = "btn secondary";
+        searchButton.textContent = "🔍 Search";
+        const searchNote = document.createElement("div");
+        searchNote.className = "sub internet-search-row";
+        const runSearch = async () => {
+          const q = searchInput.value.trim();
+          if (q.length < 2) { searchNote.textContent = "Kam se kam 2 akshar likho."; return; }
+          searchButton.disabled = true;
+          searchButton.textContent = "Searching…";
+          searchNote.textContent = "";
+          try {
+            const data = await readJson(await fetch(apiUrl("/api/scene-images?q=" + encodeURIComponent(q)), {
+              headers:{"Accept":"application/json"}
+            }));
+            const found = Array.isArray(data.images) ? data.images : [];
+            const before = images.querySelectorAll(".visual-choice").length;
+            if (found.length && emptyNote) { emptyNote.remove(); emptyNote = null; }
+            found.forEach(item => addOption(item, images.querySelectorAll(".visual-choice").length));
+            const added = images.querySelectorAll(".visual-choice").length - before;
+            searchNote.textContent = added
+              ? `${added} nayi photo mili. Jo chahiye un pe tap karke select karo.`
+              : "Is keyword pe nayi photo nahi mili. Koi chhota ya English keyword try karo.";
+          } catch (error) {
+            searchNote.textContent = error.message || "Search nahi ho payi. Thodi der baad try karo.";
+          } finally {
+            searchButton.disabled = false;
+            searchButton.textContent = "🔍 Search";
+          }
+        };
+        searchButton.addEventListener("click", runSearch);
+        searchInput.addEventListener("keydown", event => {
+          if (event.key === "Enter") { event.preventDefault(); runSearch(); }
         });
+        searchInner.append(searchInput, searchButton);
+        searchRow.append(searchInner);
+
         const uploadLabel = document.createElement("div");
         uploadLabel.className = "own-image-upload";
         uploadLabel.style.cssText = "display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px";
@@ -1127,7 +1185,7 @@ aiButton.addEventListener("click", async () => {
         credit.textContent = options.length
           ? `Source: ${options[0].provider || "Image provider"} · License: ${options[0].license} · Creator: ${options[0].artist} · Tap multiple photos to select/deselect.`
           : "No image result available.";
-        card.append(heading, narration, query, images, aiButton, uploadLabel, credit);
+        card.append(heading, narration, query, images, searchRow, searchNote, aiButton, uploadLabel, credit);
         $("visualScenes").append(card);
         toggleImageUpload();
       });

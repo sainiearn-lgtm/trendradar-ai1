@@ -1,11 +1,11 @@
 # TrendRadar AI
 
-## Voice Studio v1.6.2 — Indic Tiny TTS Hindi
+## What is new
 
-- Uses Indic Tiny TTS Hindi with male/female voices and WAV output.
-- Script + Voice runs sequentially; voice receives only the narration section, not production notes or English headings.
-- Narration is requested in Devanagari Hindi. Speed, pitch, and volume controls remain available.
-
+- **Voice (v1.7):** Gemini TTS first (most natural), free Edge neural Hindi voice as automatic fallback. No model runs on the server, so a small Render instance is enough. Daily limit per visitor (default 5) and a small in-memory cache.
+- **Video look v2:** big Reels-style subtitles with the current word highlighted, fade/slide transitions, four photo motions, a hook text in the first 3 seconds and a 2.5 second end card with your channel name.
+- **Instagram-ready MP4:** the browser builds a normal MP4 (H.264 + AAC, 720x1280, 30 fps) with WebCodecs. If the phone cannot do it, the app falls back to the older recording method (which may give WebM).
+- **Image search v2:** Pixabay is searched with a ladder (tall photos, then any shape, then fewer keywords) and good matches are no longer dropped by a strict filter. Each scene has a search box where you type your own keywords (English or Hindi).
 
 TrendRadar AI is a responsive creator-intelligence dashboard. It combines public trend feeds and an optional YouTube Data API signal, ranks source-backed topics with a transparent estimate, and generates video scripts through Google Gemini.
 
@@ -179,22 +179,15 @@ in the `API_BASE` constant with your actual deployed FastAPI backend URL (withou
 The frontend is designed to work with this project's FastAPI response fields (`trend_score`, `source_url`, `detail`) and normalizes the long-video format value expected by the backend. Deploy the `frontend` folder as a static site on Render or as the project root on Vercel.
 
 
-## Voice Studio v1.6.1 — Indic Tiny TTS Hindi
+## Voice settings (environment variables)
 
-- Hindi male and female neural voices using the ONNX Runtime model `sulabhkatiyar/indic-tiny-tts-hindi`.
-- CPU inference; no paid TTS API or GPU required.
-- Speed (50–150%), pitch (-6 to +6 semitones), and volume (0–200%) controls.
-- Audio preview and WAV download.
-- The model supports Hindi in Devanagari script only. Roman-script Hinglish and English are not supported by this model.
-- The model files are downloaded from Hugging Face on first voice generation and cached in `/tmp`; the first request can take longer.
+| Variable | Default | Meaning |
+|---|---|---|
+| `VOICE_PROVIDER` | `auto` | `auto` = Gemini then Edge, `edge` = Edge only, `gemini` = Gemini first |
+| `VOICE_DAILY_LIMIT_PER_IP` | `5` | Voices per visitor per day (`0` = no limit) |
+| `GEMINI_TTS_MODEL` | `gemini-2.5-flash-preview-tts` | Gemini TTS model name |
+| `GEMINI_TTS_MAX_CHARS` | `3000` | Longer scripts use the Edge voice |
+| `GEMINI_TTS_VOICE_MALE` / `GEMINI_TTS_VOICE_FEMALE` | `Charon` / `Kore` | Gemini voice names |
+| `VOICE_CACHE_MAX_MB` | `30` | In-memory audio cache size |
 
-### Required attribution and license
-
-This project uses **Indic Tiny TTS: Hindi** by Sulabh Katiyar. The acoustic model weights are licensed under **CC-BY-4.0** and may be used commercially when attribution is provided. The model uses the AI4Bharat **Rasa** Hindi speech dataset (CC-BY-4.0); please credit the dataset and cite the model as requested by its model card. The Vocos vocoder weights are MIT-licensed and the model code is MIT-licensed. Review the upstream model card and `LICENSE.md` before redistribution: https://huggingface.co/sulabhkatiyar/indic-tiny-tts-hindi
-
-Suggested attribution: “Indic Tiny TTS: Hindi by Sulabh Katiyar; trained using the AI4Bharat Rasa dataset. Model: https://huggingface.co/sulabhkatiyar/indic-tiny-tts-hindi.”
-
-
-### v1.6.1 reliability fix
-
-The first-use model download is restricted to the required Python package, configuration, and ONNX runtime files. Sample audio, demo assets, and safetensors are not downloaded. The model revision is pinned for repeatable deployments.
+The Edge fallback uses the unofficial `edge-tts` package; check the provider's current terms before commercial use.
